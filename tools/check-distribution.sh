@@ -42,7 +42,7 @@ else
   field_value() {
     field=$1
     file=$2
-    sed -n "s/^[[:space:]]*$field[[:space:]]*=[[:space:]]*//p" "$file" | sed -n '1p'
+    sed -n "s/^[[:space:]]*${field}[[:space:]]*=[[:space:]]*//p" "$file" | sed -n '1p'
   }
 
   for field in id name version plugin_api author license deprecated icon description tags dependencies; do
@@ -78,7 +78,7 @@ git ls-files | while IFS= read -r path; do
     .env|*/.env|.env.*|*/.env.*|raw.json|*/raw.json|smart.json|*/smart.json|\
     alerts.json|*/alerts.json|history.json|*/history.json|preferences.json|*/preferences.json|\
     state.json|*/state.json|snapshot.json|*/snapshot.json|snapshot-*.json|*/snapshot-*.json|\
-    *.snapshot.json|*/*.snapshot.json|*.cache.json|*/*.cache.json)
+    *.snapshot.json|*.cache.json)
       report tracked-artifact "$path"
       ;;
   esac

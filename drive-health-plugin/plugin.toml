@@ -1,6 +1,6 @@
 id = "gustav0ar/drive-health-plugin"
 name = "Drive Health"
-version = "1.0.1"
+version = "1.0.2"
 plugin_api = 3
 author = "Drive Health contributors"
 license = "MIT"
