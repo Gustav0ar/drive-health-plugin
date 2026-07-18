@@ -439,7 +439,7 @@ local function normalizeSmart(smart, blockSize)
   else
     life = remainingLife(attributes)
     if life == nil then
-      local vendorHealth = firstAttribute(attributes, { "Perc_Write/Erase_Count", "Perc_Avail_Resrvd_Space" })
+      local vendorHealth = firstAttribute(attributes, { "Perc_Write/Erase_Count" })
       local vendorValue = type(vendorHealth) == "table" and numeric(vendorHealth.value) or nil
       if vendorValue ~= nil then
         life = math.floor(clamp(vendorValue, 0, 100) * 10 + 0.5) / 10

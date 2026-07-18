@@ -310,12 +310,22 @@ assert(sandisk.unsafe_shutdowns == 12, "SanDisk unsafe shutdown normalization fa
 local estimated = normalizeSmart({
   smart_status = { passed = true },
   ata_smart_attributes = { table = {
-    { name = "Perc_Write/Erase_Count", value = 100, raw = { value = 590 } },
-    { name = "Perc_Avail_Resrvd_Space", value = 100, raw = { value = 100 } },
+    { name = "Perc_Write/Erase_Count", value = 83, raw = { value = 590 } },
   } },
 })
-assert(estimated.remaining_life_percent == 100 and estimated.remaining_life_estimated, "vendor fallback failed")
-assert(estimated.available_spare_percent == 100, "vendor spare normalization failed")
+assert(estimated.remaining_life_percent == 83 and estimated.remaining_life_estimated, "vendor life fallback failed")
+assert(estimated.percentage_used == 17, "vendor life usage calculation failed")
+
+local reserveOnly = normalizeSmart({
+  smart_status = { passed = true },
+  ata_smart_attributes = { table = {
+    { name = "Perc_Avail_Resrvd_Space", value = 97, raw = { value = 97 } },
+  } },
+})
+assert(reserveOnly.remaining_life_percent == nil, "reserve space must not be treated as remaining life")
+assert(reserveOnly.percentage_used == nil, "reserve space must not produce a used-life percentage")
+assert(not reserveOnly.remaining_life_estimated, "reserve space must not be marked as estimated life")
+assert(reserveOnly.available_spare_percent == 97, "vendor spare normalization failed")
 
 local used, availableBytes, usage, mountPoints = mountedUsage({ children = {
   { kname = "nvme0n1p1", mountpoints = { "/home", "/", "/home" }, fsused = 25, fsavail = 75 },
