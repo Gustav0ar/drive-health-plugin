@@ -4,7 +4,49 @@
 -- in collector.luau; this entry only evaluates normalized snapshots.
 
 local alertState = { active = {}, counters = {}, inventory = {}, dismissed = {} }
+local alertStateDirty = false
 local legacyMissingSnapshots = {}
+
+local function stateValuesEqual(left, right)
+  if left == right then
+    return true
+  end
+  local valueType = type(left)
+  if valueType ~= type(right) or valueType ~= "table" then
+    return false
+  end
+  for key, value in pairs(left) do
+    if not stateValuesEqual(value, right[key]) then
+      return false
+    end
+  end
+  for key in pairs(right) do
+    if left[key] == nil then
+      return false
+    end
+  end
+  return true
+end
+
+local function copyStateValue(value)
+  if type(value) ~= "table" then
+    return value
+  end
+  local copied = {}
+  for key, child in pairs(value) do
+    copied[key] = copyStateValue(child)
+  end
+  return copied
+end
+
+local function replaceAlertStateSection(section, value)
+  if stateValuesEqual(alertState[section], value) then
+    return false
+  end
+  alertState[section] = value
+  alertStateDirty = true
+  return true
+end
 
 local function number(value, fallback)
   local parsed = tonumber(value)
@@ -40,27 +82,36 @@ local function loadAlertState()
     alertState.inventory = type(decoded.inventory) == "table" and decoded.inventory or {}
     alertState.dismissed = type(decoded.dismissed) == "table" and decoded.dismissed or {}
   end
+  alertStateDirty = false
 end
 
 local function saveAlertState()
   local path = alertStatePath()
   if path == nil then
-    return
+    return false
   end
   local encoded, encodeError = noctalia.json.encode(alertState, true)
   if encoded == nil then
     noctalia.log("Unable to encode SMART alert state: " .. tostring(encodeError))
-    return
+    return false
   end
   local temporary = path .. ".tmp"
   local written, writeError = noctalia.writeFile(temporary, encoded)
   if not written then
     noctalia.log("Unable to persist SMART alert state: " .. tostring(writeError))
-    return
+    return false
   end
   local renamed, renameError = noctalia.renameFile(temporary, path)
   if not renamed then
     noctalia.log("Unable to commit SMART alert state: " .. tostring(renameError))
+    return false
+  end
+  return true
+end
+
+local function persistAlertState()
+  if alertStateDirty and saveAlertState() then
+    alertStateDirty = false
   end
 end
 
@@ -272,8 +323,9 @@ local function checkCounterIncrease(drive, counterKey, currentValue, translation
       noctalia.notify(title, message)
     end
   end
-  if current ~= nil then
+  if current ~= nil and current ~= previous then
     alertState.counters[key] = current
+    alertStateDirty = true
   end
 end
 
@@ -291,13 +343,13 @@ local function processSnapshot(snapshot)
     return
   end
   local previousActive = alertState.active or {}
-  local dismissed = alertState.dismissed or {}
+  local dismissed = copyStateValue(alertState.dismissed or {})
   local active = {}
   local issues = {}
   local alertHdd = boolConfig("alert_hdd", true)
   local missingAlerts = boolConfig("drive_missing_alerts", true)
   local missingGrace = math.max(1, math.floor(number(noctalia.getConfig("missing_grace_scans"), 3)))
-  local inventory = alertState.inventory or {}
+  local inventory = copyStateValue(alertState.inventory or {})
   local seen = {}
 
   local globals = {}
@@ -436,9 +488,9 @@ local function processSnapshot(snapshot)
     issue.monotonic = nil
   end
 
-  alertState.active = active
-  alertState.inventory = inventory
-  alertState.dismissed = dismissed
+  replaceAlertStateSection("active", active)
+  replaceAlertStateSection("inventory", inventory)
+  replaceAlertStateSection("dismissed", dismissed)
   snapshot.issues = visibleIssues
   snapshot.summary = snapshot.summary or {}
   snapshot.summary.active_alert_count = #visibleIssues
@@ -448,7 +500,7 @@ local function processSnapshot(snapshot)
     dismissedCount += 1
   end
   snapshot.summary.dismissed_alert_count = dismissedCount
-  saveAlertState()
+  persistAlertState()
   noctalia.state.set("snapshot", snapshot)
 end
 
@@ -462,12 +514,12 @@ noctalia.state.watch("dismiss_alert_request", function(request)
   if type(request) ~= "table" then
     return
   end
-  alertState.dismissed = alertState.dismissed or {}
+  local dismissed = copyStateValue(alertState.dismissed or {})
   if request.restore_all == true then
-    alertState.dismissed = {}
+    dismissed = {}
   elseif request.all == true then
     for id, issue in pairs(alertState.active or {}) do
-      alertState.dismissed[id] = {
+      dismissed[id] = {
         fingerprint = issue.dismissal_fingerprint or dismissalFingerprint(issue),
         dismissed_at = os.time(),
       }
@@ -476,7 +528,7 @@ noctalia.state.watch("dismiss_alert_request", function(request)
     local id = tostring(request.id)
     local issue = (alertState.active or {})[id]
     if issue ~= nil then
-      alertState.dismissed[id] = {
+      dismissed[id] = {
         fingerprint = issue.dismissal_fingerprint or dismissalFingerprint(issue),
         dismissed_at = os.time(),
       }
@@ -484,12 +536,13 @@ noctalia.state.watch("dismiss_alert_request", function(request)
   else
     return
   end
+  replaceAlertStateSection("dismissed", dismissed)
 
   local currentSnapshot = noctalia.state.get("collector_snapshot")
   if type(currentSnapshot) == "table" then
     processSnapshot(currentSnapshot)
   else
-    saveAlertState()
+    persistAlertState()
   end
 end)
 

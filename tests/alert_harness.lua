@@ -5,6 +5,9 @@ local watchers = {}
 local notifications = {}
 local stateWrites = {}
 local stateRenames = {}
+local successfulStateCommits = 0
+local failNextStateWrite = false
+local failNextStateRename = false
 
 local function translate(key, substitutions)
   local value = key
@@ -32,8 +35,23 @@ noctalia = {
   end,
   pluginDataDir = function() return "/mock/plugin-data" end,
   readFile = function(_path) return nil end,
-  writeFile = function(path, _contents) table.insert(stateWrites, path) return true end,
-  renameFile = function(from, to) table.insert(stateRenames, { from = from, to = to }) return true end,
+  writeFile = function(path, _contents)
+    table.insert(stateWrites, path)
+    if failNextStateWrite then
+      failNextStateWrite = false
+      return false, "fixture write failure"
+    end
+    return true
+  end,
+  renameFile = function(from, to)
+    table.insert(stateRenames, { from = from, to = to })
+    if failNextStateRename then
+      failNextStateRename = false
+      return false, "fixture rename failure"
+    end
+    successfulStateCommits = successfulStateCommits + 1
+    return true
+  end,
   log = function(_message) end,
   notify = function(title, body)
     table.insert(notifications, { severity = "warning", title = title, body = body })
@@ -99,23 +117,38 @@ end
 publish(snapshot(drive(45)))
 assert(#state.snapshot.issues == 0, "healthy drive produced an alert")
 assert(#notifications == 0, "healthy drive produced a notification")
+assert(#stateWrites == 1 and #stateRenames == 1 and successfulStateCommits == 1,
+  "first healthy baseline was not persisted as one atomic commit")
 
+publish(snapshot(drive(45)))
+onConfigChanged()
+assert(#stateWrites == 1 and #stateRenames == 1,
+  "identical or config-only processing rewrote alert state")
+
+local writesBeforeNewAlert = #stateWrites
 publish(snapshot(drive(70)))
 assert(#state.snapshot.issues == 1 and state.snapshot.issues[1].kind == "temperature", "warning temperature was missed")
 assert(#notifications == 1 and notifications[1].severity == "warning", "warning notification was not sent")
+assert(#stateWrites == writesBeforeNewAlert + 1 and #stateRenames == writesBeforeNewAlert + 1,
+  "new alert was not persisted as exactly one atomic commit")
 
 publish(snapshot(drive(70)))
 assert(#notifications == 1, "unchanged warning notification was duplicated")
+assert(#stateWrites == writesBeforeNewAlert + 1,
+  "unchanged active alert rewrote alert state")
 
 publish(snapshot(drive(63)))
 assert(#state.snapshot.issues == 1 and state.snapshot.issues[1].message == "alerts.temperature_cooling",
   "temperature hysteresis displayed a contradictory threshold message")
 assert(#notifications == 1, "cooling hysteresis duplicated its warning notification")
 
+local writesBeforeDismissal = #stateWrites
 dismiss({ id = "SERIAL1:temperature", nonce = 1 })
 assert(#state.snapshot.issues == 0 and state.snapshot.summary.dismissed_alert_count == 1,
   "individual dismissal did not hide the active issue")
 assert(#notifications == 1, "dismissing an issue emitted a notification")
+assert(#stateWrites == writesBeforeDismissal + 1 and #stateRenames == writesBeforeDismissal + 1,
+  "dismissal was not persisted as exactly one atomic commit")
 
 publish(snapshot(drive(63)))
 assert(#state.snapshot.issues == 0 and state.snapshot.summary.dismissed_alert_count == 1,
@@ -127,9 +160,12 @@ assert(state.snapshot.issues[1].severity == "critical", "critical escalation was
 assert(state.snapshot.summary.dismissed_alert_count == 0, "critical escalation stayed dismissed")
 assert(#notifications == 2 and notifications[2].severity == "critical", "critical escalation did not notify")
 
+local writesBeforeRecovery = #stateWrites
 publish(snapshot(drive(60)))
 assert(#state.snapshot.issues == 0, "temperature recovery did not clear")
 assert(#notifications == 3 and notifications[3].severity == "warning", "recovery did not notify")
+assert(#stateWrites == writesBeforeRecovery + 1 and #stateRenames == writesBeforeRecovery + 1,
+  "alert recovery was not persisted as exactly one atomic commit")
 
 publish(snapshot(drive(70)))
 assert(#notifications == 4, "recurring temperature issue did not notify")
@@ -141,10 +177,13 @@ publish(snapshot(drive(70)))
 assert(#state.snapshot.issues == 1 and #notifications == 5,
   "issue recurrence after resolution remained dismissed")
 dismiss({ id = "SERIAL1:temperature", nonce = 3 })
+local writesBeforeRestore = #stateWrites
 dismiss({ restore_all = true, nonce = 4 })
 assert(#state.snapshot.issues == 1 and state.snapshot.summary.dismissed_alert_count == 0,
   "restoring dismissals did not reveal the active issue")
 assert(#notifications == 5, "restoring an issue duplicated its notification")
+assert(#stateWrites == writesBeforeRestore + 1 and #stateRenames == writesBeforeRestore + 1,
+  "restoring dismissals was not persisted as exactly one atomic commit")
 publish(snapshot(drive(45)))
 
 local multiple = drive(70)
@@ -204,20 +243,47 @@ assert(state.snapshot.issues[1].kind == "self-test" and state.snapshot.issues[1]
   "self-test failure was missed")
 publish(snapshot(drive(45)))
 
+local counterIncrease = drive(45)
+counterIncrease.unsafe_shutdowns = 13
+local writesBeforeCounterIncrease = #stateWrites
+local notificationsBeforeCounterIncrease = #notifications
+publish(snapshot(counterIncrease))
+assert(#stateWrites == writesBeforeCounterIncrease + 1
+    and #stateRenames == writesBeforeCounterIncrease + 1,
+  "counter increase was not persisted as exactly one atomic commit")
+assert(#notifications == notificationsBeforeCounterIncrease + 1,
+  "counter increase notification behavior changed")
+publish(snapshot(counterIncrease))
+assert(#stateWrites == writesBeforeCounterIncrease + 1,
+  "unchanged diagnostic counter rewrote alert state")
+publish(snapshot(drive(45)))
+
 publish(snapshot(drive(45), "scan-100"))
 
 local firstMissingScan = snapshot(nil, "scan-101")
+local writesBeforeMissingScan = #stateWrites
 publish(firstMissingScan)
 assert(findIssue("drive-missing") == nil, "missing drive alerted before the grace period")
+assert(#stateWrites == writesBeforeMissingScan + 1
+    and #stateRenames == writesBeforeMissingScan + 1,
+  "missing-drive inventory change was not persisted as exactly one atomic commit")
 publish(firstMissingScan)
 assert(findIssue("drive-missing") == nil, "reprocessing one snapshot advanced the grace period")
+assert(#stateWrites == writesBeforeMissingScan + 1,
+  "reprocessing one collection rewrote unchanged inventory state")
 publish(snapshot(nil, "scan-101"))
 assert(findIssue("drive-missing") == nil, "a repeated collection ID advanced the grace period")
+assert(#stateWrites == writesBeforeMissingScan + 1,
+  "a repeated collection ID rewrote unchanged inventory state")
 
 onConfigChanged()
 assert(findIssue("drive-missing") == nil, "a config refresh advanced the grace period")
+assert(#stateWrites == writesBeforeMissingScan + 1,
+  "config refresh rewrote unchanged missing-drive state")
 dismiss({ restore_all = true, nonce = 7 })
 assert(findIssue("drive-missing") == nil, "a dismissal refresh advanced the grace period")
+assert(#stateWrites == writesBeforeMissingScan + 1,
+  "no-op dismissal refresh rewrote unchanged missing-drive state")
 
 local collectingSnapshot = snapshot(nil, "scan-collecting")
 collectingSnapshot.collecting = true
@@ -244,8 +310,12 @@ assert(findIssue("drive-missing") ~= nil, "three unique completed scans did not 
 publish(snapshot(nil, "scan-103"))
 assert(findIssue("drive-missing") ~= nil, "reprocessing a snapshot removed an active missing-drive alert")
 
+local writesBeforeReappearance = #stateWrites
 publish(snapshot(drive(45), "scan-104"))
 assert(findIssue("drive-missing") == nil, "drive reappearance did not clear its missing alert")
+assert(#stateWrites == writesBeforeReappearance + 1
+    and #stateRenames == writesBeforeReappearance + 1,
+  "drive reappearance was not persisted as exactly one atomic commit")
 publish(snapshot(nil, "scan-105"))
 publish(snapshot(nil, "scan-106"))
 assert(findIssue("drive-missing") == nil, "reappearance did not reset the missing-drive grace period")
@@ -290,9 +360,51 @@ for index = notificationCountBeforeFailure + 1, #notifications do
   end
 end
 assert(collectorCritical, "collector failure did not notify critically")
-assert(#stateWrites > 0 and stateWrites[#stateWrites]:match("alert%-state%.json%.tmp$"),
-  "alert state was not written to a temporary file")
-assert(#stateRenames > 0 and stateRenames[#stateRenames].to:match("alert%-state%.json$"),
-  "alert state was not committed atomically")
+
+local writesBeforeWriteFailure = #stateWrites
+local renamesBeforeWriteFailure = #stateRenames
+local commitsBeforeWriteFailure = successfulStateCommits
+failNextStateWrite = true
+dismiss({ id = "collector:error", nonce = 8 })
+assert(#stateWrites == writesBeforeWriteFailure + 1
+    and #stateRenames == renamesBeforeWriteFailure
+    and successfulStateCommits == commitsBeforeWriteFailure,
+  "failed temporary write attempted a rename or lost the pending state")
+publish(failed)
+assert(#stateWrites == writesBeforeWriteFailure + 2
+    and #stateRenames == renamesBeforeWriteFailure + 1
+    and successfulStateCommits == commitsBeforeWriteFailure + 1,
+  "unchanged snapshot did not retry a failed alert-state write")
+publish(failed)
+assert(#stateWrites == writesBeforeWriteFailure + 2,
+  "successful write retry did not clear dirty alert state")
+
+local writesBeforeRenameFailure = #stateWrites
+local renamesBeforeRenameFailure = #stateRenames
+local commitsBeforeRenameFailure = successfulStateCommits
+failNextStateRename = true
+dismiss({ restore_all = true, nonce = 9 })
+assert(#stateWrites == writesBeforeRenameFailure + 1
+    and #stateRenames == renamesBeforeRenameFailure + 1
+    and successfulStateCommits == commitsBeforeRenameFailure,
+  "failed atomic rename was treated as a successful commit")
+onConfigChanged()
+assert(#stateWrites == writesBeforeRenameFailure + 2
+    and #stateRenames == renamesBeforeRenameFailure + 2
+    and successfulStateCommits == commitsBeforeRenameFailure + 1,
+  "unchanged processing did not retry a failed atomic rename")
+onConfigChanged()
+assert(#stateWrites == writesBeforeRenameFailure + 2,
+  "successful rename retry did not clear dirty alert state")
+
+for _, path in ipairs(stateWrites) do
+  assert(path:match("alert%-state%.json%.tmp$"),
+    "alert state bypassed its temporary file")
+end
+for _, rename in ipairs(stateRenames) do
+  assert(rename.from:match("alert%-state%.json%.tmp$")
+      and rename.to:match("alert%-state%.json$"),
+    "alert state was not committed with an atomic rename")
+end
 
 print("alert behavior tests passed")
