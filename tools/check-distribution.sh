@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+repo_root=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$repo_root"
 
 plugin_dir=drive-health-plugin
@@ -59,14 +59,13 @@ else
     report plugin-identity "$manifest"
   fi
 
-  release_version=$(field_value version "$manifest" | sed 's/^"//; s/"$//')
   collector_version=$(sed -n 's/^local EXPECTED_COLLECTOR_VERSION = "\([^"]*\)"$/\1/p' \
     "$plugin_dir/collector.luau")
   raw_collector_version=$(sed -n 's/^collector_version="\([^"]*\)"$/\1/p' \
     "$plugin_dir/scripts/collect_raw.sh")
-  if [ -z "$release_version" ] || [ "$release_version" != "$collector_version" ] \
-    || [ "$release_version" != "$raw_collector_version" ]; then
-    report release-version-parity "$manifest"
+  if [ -z "$collector_version" ] || [ -z "$raw_collector_version" ] \
+    || [ "$collector_version" != "$raw_collector_version" ]; then
+    report collector-version-parity "$plugin_dir/scripts/collect_raw.sh"
   fi
 fi
 

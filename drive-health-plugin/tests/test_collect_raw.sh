@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-project_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+project_dir=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
 fixture_bin="$project_dir/tests/fixtures/bin"
 
 payload=$(PATH="$fixture_bin:$PATH" sh "$project_dir/scripts/collect_raw.sh")

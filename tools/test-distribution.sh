@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+repo_root=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
 fixture=$(mktemp -d "${TMPDIR:-/tmp}/drive-health-distribution-test.XXXXXX")
 trap 'rm -rf -- "$fixture"' EXIT HUP INT TERM
 
@@ -61,5 +61,21 @@ if grep -q 'fixture-value' "$fixture/output"; then
   echo "distribution check printed matched credential content" >&2
   exit 1
 fi
+git -C "$fixture" rm -q --cached credential.txt
+rm -f -- "$fixture/credential.txt" "$fixture/output"
+
+awk '
+  /^collector_version=/ { print "collector_version=\"0.9.9\""; next }
+  { print }
+' "$fixture/drive-health-plugin/scripts/collect_raw.sh" >"$fixture/collect_raw.next"
+mv "$fixture/collect_raw.next" "$fixture/drive-health-plugin/scripts/collect_raw.sh"
+git -C "$fixture" add drive-health-plugin/scripts/collect_raw.sh
+if (cd "$fixture" && sh tools/check-distribution.sh) >"$fixture/output" 2>&1; then
+  echo "distribution check accepted mismatched collector versions" >&2
+  exit 1
+fi
+grep -qx \
+  'collector-version-parity:drive-health-plugin/scripts/collect_raw.sh:0' \
+  "$fixture/output"
 
 echo "distribution negative tests passed"
