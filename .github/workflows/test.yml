@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Install test dependencies
         run: sudo apt-get update && sudo apt-get install -y jq lua5.4 shellcheck smartmontools util-linux
       - name: Run tests
