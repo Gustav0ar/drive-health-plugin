@@ -1,39 +1,16 @@
 SHELL := /bin/sh
 
-.PHONY: test unit shell translations lint
+PLUGIN_DIR := drive-health-plugin
 
-test: unit shell translations lint
+.PHONY: test plugin-test distribution
 
-unit:
-	lua tests/collector_harness.lua ready
-	lua tests/collector_harness.lua missing-lsblk
-	lua tests/collector_harness.lua missing-smartctl
-	lua tests/collector_harness.lua incompatible-lsblk
-	lua tests/collector_harness.lua incompatible-smartctl
-	lua tests/collector_harness.lua async-incompatible-lsblk
-	lua tests/collector_harness.lua probe-timeout
-	lua tests/collector_harness.lua probe-completes-during-collection
-	lua tests/collector_harness.lua raw-cache
-	lua tests/collector_harness.lua legacy-cache
-	lua tests/alert_harness.lua
-	lua tests/history_harness.lua
-	lua tests/panel_harness.lua
-	lua tests/widget_harness.lua
+test: plugin-test distribution
 
-shell:
-	sh tests/test_collect_raw.sh
-	sh -n scripts/collect_raw.sh packaging/smart-action.sh tests/test_collect_raw.sh
-	bash -n packaging/install-system-collector.sh packaging/uninstall-system-collector.sh
-	@if command -v shellcheck >/dev/null 2>&1; then \
-		shellcheck scripts/collect_raw.sh packaging/*.sh tests/test_collect_raw.sh tests/fixtures/bin/*; \
-	fi
+plugin-test:
+	$(MAKE) -C $(PLUGIN_DIR) test
 
-translations:
-	@jq -S 'paths(scalars) | join(".")' translations/en.json > /tmp/noctalia-smart-en-keys
-	@jq -S 'paths(scalars) | join(".")' translations/pt-BR.json > /tmp/noctalia-smart-pt-keys
-	diff -u /tmp/noctalia-smart-en-keys /tmp/noctalia-smart-pt-keys
-
-lint:
-	@if command -v noctalia >/dev/null 2>&1; then noctalia plugins lint .; \
-	else echo "noctalia CLI unavailable; skipped plugin manifest lint"; fi
-	git diff --check
+distribution:
+	sh -n tools/check-distribution.sh tools/test-distribution.sh
+	@if command -v shellcheck >/dev/null 2>&1; then shellcheck tools/*.sh; fi
+	sh tools/check-distribution.sh
+	sh tools/test-distribution.sh

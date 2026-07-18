@@ -1,9 +1,10 @@
 id = "gustav0ar/drive-health-plugin"
-name = "SMART Monitor"
-version = "0.8.2"
+name = "Drive Health"
+version = "1.0.0"
 plugin_api = 3
 author = "Drive Health contributors"
 license = "MIT"
+deprecated = false
 dependencies = ["smartmontools", "util-linux"]
 tags = ["system", "storage", "smart", "ssd", "hdd", "monitoring"]
 icon = "server-2"

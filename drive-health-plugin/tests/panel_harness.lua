@@ -68,8 +68,8 @@ state.snapshot = {
   generated_at_local = "12:00:00",
   collector_error = nil,
   dependencies = { ready = true },
-  system_collector = { installed = true, status = "healthy", version = "0.6.0",
-    expected_version = "0.6.0", helper_available = true, authorization_available = true },
+  system_collector = { installed = true, status = "healthy", version = "1.0.0",
+    expected_version = "1.0.0", helper_available = true, authorization_available = true },
   summary = { disk_count = 2, ssd_count = 1, hdd_count = 1, smart_available_count = 2,
     ssd_smart_available_count = 1, hottest_drive_temperature_c = 70,
     hottest_ssd_temperature_c = 70, worst_ssd_remaining_life_percent = 95 },
@@ -158,9 +158,11 @@ assert(findNodeWithProp(rendered, "glyph", "name", "server-2") ~= nil,
 assert(containsText(rendered, "metrics.mounted_at /  ·  /home/example"),
   "mounted drive card omitted its mounted folders")
 state.snapshot.system_collector.status = "upgrade-required"
+state.snapshot.system_collector.version = "0.6.0"
 watchers.snapshot(state.snapshot)
 assert(containsText(rendered, "collector.title"), "actionable collector state did not render")
 state.snapshot.system_collector.status = "healthy"
+state.snapshot.system_collector.version = "1.0.0"
 watchers.snapshot(state.snapshot)
 onDrive1Clicked()
 assert(containsText(rendered, "self_test.title"), "expanded self-test card did not render")

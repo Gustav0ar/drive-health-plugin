@@ -23,7 +23,7 @@ local available = {
 
 local rawFixture = {
   schema = 2,
-  collector_version = "0.6.0",
+  collector_version = mode == "outdated-raw-cache" and "0.6.0" or "1.0.0",
   collection_id = "fixture-collection-id",
   generated_at_epoch = 1700000000,
   lsblk = { blockdevices = {} },
@@ -51,7 +51,7 @@ noctalia = {
   pluginDir = function() return "/mock/plugin" end,
   pluginDataDir = function() return "/mock/plugin-data" end,
   fileInfo = function(path)
-    if mode == "raw-cache" and path:match("raw%.json$") then
+    if (mode == "raw-cache" or mode == "outdated-raw-cache") and path:match("raw%.json$") then
       return { isDir = false, mtime = os.time() }
     elseif mode == "legacy-cache" and path:match("smart%.json$") then
       return { isDir = false, mtime = os.time() }
@@ -61,7 +61,9 @@ noctalia = {
   fileExists = function(path) return files[path] ~= nil end,
   listDir = function(path) return directories[path] or {} end,
   readFile = function(path)
-    if mode == "raw-cache" and path:match("raw%.json$") then return "raw-cache" end
+    if (mode == "raw-cache" or mode == "outdated-raw-cache") and path:match("raw%.json$") then
+      return "raw-cache"
+    end
     if mode == "legacy-cache" and path:match("smart%.json$") then return "legacy-cache" end
     return files[path]
   end,
@@ -181,6 +183,19 @@ elseif mode == "missing-smartctl" then
 elseif mode == "raw-cache" then
   assert(snapshot.source == "system-cache", "raw cache was not normalized")
   assert(snapshot.collection_id == "fixture-collection-id", "raw cache lost its collection ID")
+  assert(snapshot.system_collector.status == "healthy"
+    and snapshot.system_collector.version == "1.0.0"
+    and snapshot.system_collector.expected_version == "1.0.0",
+    "current system collector was not reported healthy")
+  assert(not (launchedCommand or ""):match("collect_raw%.sh"), "collector launched despite a fresh raw cache")
+  print("collector initialization test passed: " .. mode)
+  return
+elseif mode == "outdated-raw-cache" then
+  assert(snapshot.source == "system-cache", "outdated raw cache was not normalized")
+  assert(snapshot.system_collector.status == "upgrade-required"
+    and snapshot.system_collector.version == "0.6.0"
+    and snapshot.system_collector.expected_version == "1.0.0",
+    "older system collector did not request an upgrade")
   assert(not (launchedCommand or ""):match("collect_raw%.sh"), "collector launched despite a fresh raw cache")
   print("collector initialization test passed: " .. mode)
   return

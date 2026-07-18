@@ -7,7 +7,7 @@ local RAW_CACHE = "/run/noctalia-smart-monitor/raw.json"
 local LEGACY_CACHE = "/run/noctalia-smart-monitor/smart.json"
 local CACHE_MAX_AGE_SECONDS = 180
 local NVME_DATA_UNIT_BYTES = 512000
-local EXPECTED_COLLECTOR_VERSION = "0.6.0"
+local EXPECTED_COLLECTOR_VERSION = "1.0.0"
 local PREFERENCES_FILE = "drive-preferences.json"
 
 local collecting = false

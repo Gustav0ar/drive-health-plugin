@@ -7,7 +7,7 @@ fixture_bin="$project_dir/tests/fixtures/bin"
 payload=$(PATH="$fixture_bin:$PATH" sh "$project_dir/scripts/collect_raw.sh")
 printf '%s\n' "$payload" | jq -e '
   .schema == 2
-  and .collector_version == "0.6.0"
+  and .collector_version == "1.0.0"
   and (.collection_id | type == "string" and length > 0)
   and (.lsblk.blockdevices | length) == 2
   and (.smart | length) == 2
