@@ -78,12 +78,22 @@ local function drive(temperature)
   }
 end
 
-local function snapshot(disk)
+local function snapshot(disk, collectionId)
   return {
+    collection_id = collectionId,
     disks = disk ~= nil and { disk } or {},
     dependencies = { ready = true, missing = {}, missing_text = "", signature = "" },
     summary = { ssd_count = disk ~= nil and 1 or 0 },
   }
+end
+
+local function findIssue(kind)
+  for _, issue in ipairs(state.snapshot.issues or {}) do
+    if issue.kind == kind then
+      return issue
+    end
+  end
+  return nil
 end
 
 publish(snapshot(drive(45)))
@@ -194,15 +204,63 @@ assert(state.snapshot.issues[1].kind == "self-test" and state.snapshot.issues[1]
   "self-test failure was missed")
 publish(snapshot(drive(45)))
 
-publish(snapshot(drive(45)))
+publish(snapshot(drive(45), "scan-100"))
+
+local firstMissingScan = snapshot(nil, "scan-101")
+publish(firstMissingScan)
+assert(findIssue("drive-missing") == nil, "missing drive alerted before the grace period")
+publish(firstMissingScan)
+assert(findIssue("drive-missing") == nil, "reprocessing one snapshot advanced the grace period")
+publish(snapshot(nil, "scan-101"))
+assert(findIssue("drive-missing") == nil, "a repeated collection ID advanced the grace period")
+
+onConfigChanged()
+assert(findIssue("drive-missing") == nil, "a config refresh advanced the grace period")
+dismiss({ restore_all = true, nonce = 7 })
+assert(findIssue("drive-missing") == nil, "a dismissal refresh advanced the grace period")
+
+local collectingSnapshot = snapshot(nil, "scan-collecting")
+collectingSnapshot.collecting = true
+publish(collectingSnapshot)
+assert(findIssue("drive-missing") == nil, "an in-progress collection advanced the grace period")
+
+local failedMissingScan = snapshot(nil, "scan-failed")
+failedMissingScan.collector_error = "fixture failure"
+publish(failedMissingScan)
+assert(findIssue("drive-missing") == nil, "a failed collection advanced the grace period")
+
+local blockedMissingScan = snapshot(nil, "scan-blocked")
+blockedMissingScan.dependencies = {
+  ready = false, blocking = true,
+  missing = { "lsblk (lsblk)" }, missing_text = "lsblk (lsblk)", signature = "lsblk",
+}
+publish(blockedMissingScan)
+assert(findIssue("drive-missing") == nil, "a blocked collection advanced the grace period")
+
+publish(snapshot(nil, "scan-102"))
+assert(findIssue("drive-missing") == nil, "missing drive alerted after only two completed scans")
+publish(snapshot(nil, "scan-103"))
+assert(findIssue("drive-missing") ~= nil, "three unique completed scans did not trigger a missing-drive alert")
+publish(snapshot(nil, "scan-103"))
+assert(findIssue("drive-missing") ~= nil, "reprocessing a snapshot removed an active missing-drive alert")
+
+publish(snapshot(drive(45), "scan-104"))
+assert(findIssue("drive-missing") == nil, "drive reappearance did not clear its missing alert")
+publish(snapshot(nil, "scan-105"))
+publish(snapshot(nil, "scan-106"))
+assert(findIssue("drive-missing") == nil, "reappearance did not reset the missing-drive grace period")
+publish(snapshot(nil, "scan-107"))
+assert(findIssue("drive-missing") ~= nil, "three new scans after reappearance did not trigger an alert")
+
+publish(snapshot(drive(45), "scan-108"))
+local legacyMissingScan = snapshot(nil)
+publish(legacyMissingScan)
+publish(legacyMissingScan)
+assert(findIssue("drive-missing") == nil, "a repeated legacy snapshot advanced the grace period")
 publish(snapshot(nil))
+assert(findIssue("drive-missing") == nil, "two legacy snapshot objects triggered an early alert")
 publish(snapshot(nil))
-publish(snapshot(nil))
-local missingFound = false
-for _, issue in ipairs(state.snapshot.issues) do
-  if issue.kind == "drive-missing" then missingFound = true end
-end
-assert(missingFound, "missing-drive grace alert was missed")
+assert(findIssue("drive-missing") ~= nil, "distinct legacy snapshot objects did not advance the grace period")
 
 local missing = snapshot(nil)
 missing.dependencies = {
@@ -211,7 +269,8 @@ missing.dependencies = {
 }
 local notificationCountBeforeDependency = #notifications
 publish(missing)
-assert(#state.snapshot.issues == 1 and state.snapshot.issues[1].kind == "missing-dependencies", "dependency issue was missed")
+assert(findIssue("missing-dependencies") ~= nil, "dependency issue was missed")
+assert(findIssue("drive-missing") ~= nil, "a blocking dependency removed an active missing-drive alert")
 local dependencyCritical = false
 for index = notificationCountBeforeDependency + 1, #notifications do
   if notifications[index].severity == "critical" then dependencyCritical = true end
@@ -222,7 +281,8 @@ local failed = snapshot(nil)
 failed.collector_error = "fixture failure"
 local notificationCountBeforeFailure = #notifications
 publish(failed)
-assert(#state.snapshot.issues == 1 and state.snapshot.issues[1].kind == "collector-error", "collector issue was missed")
+assert(findIssue("collector-error") ~= nil, "collector issue was missed")
+assert(findIssue("drive-missing") ~= nil, "a collector failure removed an active missing-drive alert")
 local collectorCritical = false
 for index = notificationCountBeforeFailure + 1, #notifications do
   if notifications[index].severity == "critical" then

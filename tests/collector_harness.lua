@@ -24,6 +24,7 @@ local available = {
 local rawFixture = {
   schema = 2,
   collector_version = "0.6.0",
+  collection_id = "fixture-collection-id",
   generated_at_epoch = 1700000000,
   lsblk = { blockdevices = {} },
   smart = {},
@@ -179,6 +180,7 @@ elseif mode == "missing-smartctl" then
   return
 elseif mode == "raw-cache" then
   assert(snapshot.source == "system-cache", "raw cache was not normalized")
+  assert(snapshot.collection_id == "fixture-collection-id", "raw cache lost its collection ID")
   assert(not (launchedCommand or ""):match("collect_raw%.sh"), "collector launched despite a fresh raw cache")
   print("collector initialization test passed: " .. mode)
   return
@@ -356,6 +358,7 @@ files["/sys/class/nvme/nvme9/device/hwmon/hwmon9/temp1_input"] = "47000\n"
 directories["/sys/class/nvme/nvme9/device/hwmon"] = { "hwmon9" }
 local normalized, normalizeError = normalizeRaw({
   schema = 2,
+  collection_id = "fixture-normalized-id",
   generated_at_epoch = 1700000000,
   lsblk = { blockdevices = {
     {
@@ -375,6 +378,7 @@ local normalized, normalizeError = normalizeRaw({
   },
 }, "test")
 assert(normalized ~= nil and normalizeError == nil, "raw normalization failed")
+assert(normalized.collection_id == "fixture-normalized-id", "raw normalization lost its collection ID")
 assert(normalized.summary.ssd_count == 1 and normalized.disks[1].id == "FIXTURE1", "drive discovery failed")
 assert(normalized.disks[1].temperature_c == 47, "sysfs temperature fallback failed")
 assert(normalized.disks[1].mount_points[1] == "/mnt/work",
@@ -424,10 +428,17 @@ assert(healthyRaw.disks[1].smart_available == true and healthyRaw.disks[1].smart
   "healthy SMART data retained a contradictory error message")
 
 local empty = assert(normalizeRaw({
-  schema = 2, generated_at_epoch = 1700000000,
+  schema = 2, collection_id = "   ", generated_at_epoch = 1700000000,
   lsblk = { blockdevices = {} }, smart = {},
 }, "test"))
 assert(empty.access == "unavailable", "an empty drive inventory incorrectly reported full SMART access")
+assert(empty.collection_id == nil, "invalid collection ID was preserved")
+
+local oversizedId = assert(normalizeRaw({
+  schema = 2, collection_id = string.rep("x", 129), generated_at_epoch = 1700000000,
+  lsblk = { blockdevices = {} }, smart = {},
+}, "test"))
+assert(oversizedId.collection_id == nil, "oversized collection ID was preserved")
 
 files["/usr/local/libexec/noctalia-smart-monitor/collect_raw.sh"] = "installed"
 state.collector_snapshot = { summary = {}, system_collector = { status = "healthy" } }

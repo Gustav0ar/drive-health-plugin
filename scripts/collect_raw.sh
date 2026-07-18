@@ -9,6 +9,18 @@ LC_ALL=C
 export LC_ALL
 
 collector_version="0.6.0"
+generated_at_epoch=$(date +%s)
+collection_id=""
+if [ -r /proc/sys/kernel/random/uuid ]; then
+  IFS= read -r collection_id </proc/sys/kernel/random/uuid || collection_id=""
+fi
+if [ -z "$collection_id" ]; then
+  uptime_field=""
+  if [ -r /proc/uptime ]; then
+    IFS=' ' read -r uptime_field _ </proc/uptime || uptime_field=""
+  fi
+  collection_id="${generated_at_epoch}-$$-${uptime_field:-unknown}"
+fi
 
 output=""
 if [ "${1:-}" = "--output" ]; then
@@ -45,8 +57,8 @@ trap cleanup EXIT HUP INT TERM
 lsblk --nodeps --noheadings --paths --output PATH,TYPE,ROTA >"$devices_tmp"
 
 {
-  printf '{"schema":2,"collector_version":"%s","generated_at_epoch":%s,"lsblk":' \
-    "$collector_version" "$(date +%s)"
+  printf '{"schema":2,"collector_version":"%s","collection_id":"%s","generated_at_epoch":%s,"lsblk":' \
+    "$collector_version" "$collection_id" "$generated_at_epoch"
   lsblk --json --bytes --output \
     NAME,KNAME,PATH,PKNAME,TYPE,TRAN,ROTA,RM,HOTPLUG,SIZE,LOG-SEC,PHY-SEC,MODEL,SERIAL,FSTYPE,FSSIZE,FSUSED,FSAVAIL,MOUNTPOINTS
   printf ',"smart":['

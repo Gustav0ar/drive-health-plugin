@@ -4,6 +4,7 @@
 -- in collector.luau; this entry only evaluates normalized snapshots.
 
 local alertState = { active = {}, counters = {}, inventory = {}, dismissed = {} }
+local legacyMissingSnapshots = {}
 
 local function number(value, fallback)
   local parsed = tonumber(value)
@@ -13,6 +14,15 @@ end
 local function boolConfig(key, fallback)
   local value = noctalia.getConfig(key)
   return value == nil and fallback or value == true
+end
+
+local function snapshotCollectionId(snapshot)
+  local value = snapshot.collection_id
+  if type(value) ~= "string" or value:match("^%s*$") ~= nil
+      or #value > 128 or value:find("[%c]") ~= nil then
+    return nil
+  end
+  return value
 end
 
 local function alertStatePath()
@@ -319,8 +329,10 @@ local function processSnapshot(snapshot)
           kind = drive.kind,
           missing_scans = 0,
         }
+        legacyMissingSnapshots[id] = nil
       else
         inventory[id] = nil
+        legacyMissingSnapshots[id] = nil
       end
       if eligibleKind and drive.alerts_enabled ~= false then
         checkDiagnosticCounters(drive)
@@ -332,13 +344,25 @@ local function processSnapshot(snapshot)
     end
   end
 
-  local collectionHealthy = snapshot.collector_error == nil
+  local collectionHealthy = snapshot.collecting ~= true and snapshot.collector_error == nil
     and not (type(snapshot.dependencies) == "table" and snapshot.dependencies.blocking)
-  if collectionHealthy and missingAlerts then
+  local collectionId = snapshotCollectionId(snapshot)
+  if missingAlerts then
     for id, known in pairs(inventory) do
       local eligibleKind = known.kind == "ssd" or alertHdd
       if not seen[id] and eligibleKind then
-        known.missing_scans = number(known.missing_scans, 0) + 1
+        local countScan = false
+        if collectionHealthy and collectionId ~= nil then
+          countScan = known.last_missing_collection_id ~= collectionId
+          known.last_missing_collection_id = collectionId
+          legacyMissingSnapshots[id] = nil
+        elseif collectionHealthy and legacyMissingSnapshots[id] ~= snapshot then
+          countScan = true
+          legacyMissingSnapshots[id] = snapshot
+        end
+        if countScan then
+          known.missing_scans = number(known.missing_scans, 0) + 1
+        end
         if known.missing_scans >= missingGrace then
           local issue = {
             id = id .. ":missing",

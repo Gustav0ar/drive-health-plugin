@@ -82,6 +82,17 @@ local function integer(value)
   return parsed ~= nil and math.floor(parsed) or nil
 end
 
+local function validCollectionId(value)
+  if type(value) ~= "string" then
+    return nil
+  end
+  local trimmed = noctalia.string.trim(value)
+  if trimmed == "" or #trimmed > 128 or trimmed:find("[%c]") ~= nil then
+    return nil
+  end
+  return trimmed
+end
+
 local function clamp(value, minimum, maximum)
   return math.max(minimum, math.min(maximum, value))
 end
@@ -791,6 +802,7 @@ local function normalizeRaw(raw, source)
   end
   return {
     schema = 1,
+    collection_id = validCollectionId(raw.collection_id),
     generated_at = tostring(epoch),
     generated_at_epoch = epoch,
     generated_at_local = noctalia.formatTime("%H:%M:%S", epoch),
