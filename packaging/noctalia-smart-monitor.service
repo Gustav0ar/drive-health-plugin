@@ -1,0 +1,34 @@
+[Unit]
+Description=Collect read-only SMART data for the Noctalia SMART Monitor plugin
+Documentation=man:smartctl(8)
+After=local-fs.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh /usr/local/libexec/noctalia-smart-monitor/collect_raw.sh --output /run/noctalia-smart-monitor/raw.json
+RuntimeDirectory=noctalia-smart-monitor
+RuntimeDirectoryMode=0755
+RuntimeDirectoryPreserve=yes
+UMask=0022
+StandardOutput=null
+StandardError=journal
+TimeoutStartSec=25s
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateNetwork=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectHostname=true
+ProtectKernelLogs=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ProtectClock=true
+RestrictAddressFamilies=AF_UNIX
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+SystemCallArchitectures=native
+LockPersonality=true
+MemoryDenyWriteExecute=true
+ReadWritePaths=/run/noctalia-smart-monitor
