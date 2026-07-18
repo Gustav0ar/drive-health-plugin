@@ -13,7 +13,12 @@ local PREFERENCES_FILE = "drive-preferences.json"
 local collecting = false
 local refreshNonce = 0
 local loggedDependencySignature = nil
-local dependencyProbe = { checked = false, running = false, incompatible = {} }
+local dependencyProbe = {
+  checked = false,
+  running = false,
+  forcedPending = false,
+  incompatible = {},
+}
 local dependencyProbeGeneration = tonumber(noctalia.state.get("dependency_probe_generation")) or 0
 local drivePreferences = { schema = 1, order = {}, drives = {} }
 
@@ -808,7 +813,19 @@ local function detectedPackageManager()
   return nil
 end
 
-local function startDependencyProbe()
+local startDependencyProbe
+
+local function forceDependencyProbe()
+  if dependencyProbe.running then
+    dependencyProbe.forcedPending = true
+    return
+  end
+  dependencyProbe.checked = false
+  dependencyProbe.incompatible = {}
+  startDependencyProbe()
+end
+
+startDependencyProbe = function()
   if dependencyProbe.checked or dependencyProbe.running
       or not noctalia.commandExists("lsblk") or not noctalia.commandExists("smartctl") then
     return
@@ -829,11 +846,19 @@ local function startDependencyProbe()
     }
     dependencyProbeGeneration += 1
     noctalia.state.set("dependency_probe_generation", dependencyProbeGeneration)
+    if dependencyProbe.forcedPending then
+      dependencyProbe.forcedPending = false
+      forceDependencyProbe()
+    end
   end, 5000)
   if not launched then
     dependencyProbe.running = false
     dependencyProbe.checked = true
     dependencyProbe.incompatible = { lsblk = true, smartctl = true }
+    if dependencyProbe.forcedPending then
+      dependencyProbe.forcedPending = false
+      forceDependencyProbe()
+    end
   end
 end
 
@@ -1007,6 +1032,7 @@ noctalia.state.watch("refresh_nonce", function(value)
   local nextNonce = tonumber(value) or 0
   if nextNonce ~= refreshNonce then
     refreshNonce = nextNonce
+    forceDependencyProbe()
     collect()
   end
 end)
@@ -1032,7 +1058,10 @@ function onConfigChanged()
 end
 
 function onIpc(event, _payload)
-  if event == "refresh" or event == "check-dependencies" then
+  if event == "check-dependencies" then
+    forceDependencyProbe()
+    collect()
+  elseif event == "refresh" then
     collect()
   elseif event == "test-alert" then
     noctalia.notify(noctalia.tr("alerts.test_title"), noctalia.tr("alerts.test_body"))

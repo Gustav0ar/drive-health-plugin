@@ -10,6 +10,8 @@ local files = {}
 local directories = {}
 local watchers = {}
 local pendingProbeCallback = nil
+local probeCalls = 0
+local probeAction = nil
 
 local available = {
   lsblk = mode ~= "missing-lsblk",
@@ -90,6 +92,22 @@ noctalia = {
     launchedCommand = command
     table.insert(launchedCommands, command)
     if command:match("lsblk=ok") then
+      probeCalls = probeCalls + 1
+      if probeAction == "pending" then
+        assert(pendingProbeCallback == nil, "dependency probes overlapped")
+        pendingProbeCallback = callback
+        return true
+      end
+      if probeAction == "launch-failure" then
+        probeAction = nil
+        return false
+      end
+      if type(probeAction) == "table" then
+        local response = probeAction
+        probeAction = nil
+        callback(response)
+        return true
+      end
       if mode == "async-incompatible-lsblk" or mode == "probe-completes-during-collection" then
         pendingProbeCallback = callback
         return true
@@ -416,5 +434,76 @@ state.collector_snapshot = { summary = {}, system_collector = { status = "health
 publishError("fixture failure", { ready = true, blocking = false })
 assert(state.collector_snapshot.system_collector.status == "stale",
   "collector failure retained a stale healthy lifecycle status")
+
+local compatibleProbe = {
+  exitCode = 0, stdout = "lsblk=ok\nsmartctl=ok\n", stderr = "", timedOut = false,
+}
+local incompatibleProbe = {
+  exitCode = 0, stdout = "lsblk=bad\nsmartctl=ok\n", stderr = "", timedOut = false,
+}
+
+probeAction = incompatibleProbe
+watchers.refresh_nonce(1)
+assert(state.collector_snapshot.dependencies.ready == false,
+  "manual dependency probe did not cache an incompatible result")
+probeAction = "pending"
+watchers.refresh_nonce(2)
+assert(pendingProbeCallback ~= nil, "manual recheck did not launch a fresh dependency probe")
+local manualRecheck = pendingProbeCallback
+pendingProbeCallback = nil
+manualRecheck(compatibleProbe)
+assert(state.collector_snapshot.dependencies.ready == true,
+  "manual recheck did not recover a cached incompatible dependency")
+local completedProbeCalls = probeCalls
+update()
+onIpc("refresh")
+assert(probeCalls == completedProbeCalls,
+  "routine collection reran a completed dependency probe")
+
+probeAction = incompatibleProbe
+watchers.refresh_nonce(3)
+assert(state.collector_snapshot.dependencies.ready == false,
+  "IPC recheck fixture did not cache an incompatible result")
+probeAction = "pending"
+onIpc("check-dependencies")
+assert(pendingProbeCallback ~= nil, "dependency-check IPC did not launch a fresh probe")
+local ipcRecheck = pendingProbeCallback
+pendingProbeCallback = nil
+ipcRecheck(compatibleProbe)
+assert(state.collector_snapshot.dependencies.ready == true,
+  "dependency-check IPC did not recover a cached incompatible dependency")
+
+probeAction = "pending"
+local callsBeforeQueuedRecheck = probeCalls
+watchers.refresh_nonce(4)
+onIpc("check-dependencies")
+assert(probeCalls == callsBeforeQueuedRecheck + 1 and pendingProbeCallback ~= nil,
+  "recheck during a running probe launched an overlapping probe")
+local runningRecheck = pendingProbeCallback
+pendingProbeCallback = nil
+runningRecheck(compatibleProbe)
+assert(probeCalls == callsBeforeQueuedRecheck + 2 and pendingProbeCallback ~= nil,
+  "pending rechecks were not coalesced into one follow-up probe")
+local queuedRecheck = pendingProbeCallback
+pendingProbeCallback = nil
+probeAction = nil
+queuedRecheck(compatibleProbe)
+assert(probeCalls == callsBeforeQueuedRecheck + 2,
+  "queued recheck launched more than one follow-up probe")
+
+probeAction = "launch-failure"
+local callsBeforeLaunchFailure = probeCalls
+watchers.refresh_nonce(5)
+assert(probeCalls == callsBeforeLaunchFailure + 1
+    and state.collector_snapshot.dependencies.ready == false,
+  "probe launch failure did not publish an incompatible state")
+update()
+assert(probeCalls == callsBeforeLaunchFailure + 1,
+  "routine collection retried a failed probe launch")
+probeAction = compatibleProbe
+watchers.refresh_nonce(6)
+assert(probeCalls == callsBeforeLaunchFailure + 2
+    and state.collector_snapshot.dependencies.ready == true,
+  "manual recheck did not recover after a probe launch failure")
 
 print("collector normalization tests passed")
