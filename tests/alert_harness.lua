@@ -138,7 +138,7 @@ assert(#notifications == 5, "restoring an issue duplicated its notification")
 publish(snapshot(drive(45)))
 
 local multiple = drive(70)
-multiple.smart_completeness = "partial"
+multiple.interface_crc_errors = 2
 publish(snapshot(multiple))
 assert(#state.snapshot.issues == 2, "multi-alert fixture did not produce two issues")
 dismiss({ all = true, nonce = 5 })
@@ -176,7 +176,14 @@ publish(snapshot(drive(45)))
 local partial = drive(45)
 partial.smart_completeness = "partial"
 publish(snapshot(partial))
-assert(state.snapshot.issues[1].kind == "smart-partial", "partial SMART warning was missed")
+assert(#state.snapshot.issues == 0, "healthy partial SMART data produced an alert")
+publish(snapshot(drive(45)))
+
+local unavailable = drive(45)
+unavailable.smart_available = false
+publish(snapshot(unavailable))
+assert(#state.snapshot.issues == 1 and state.snapshot.issues[1].kind == "smart-unavailable",
+  "unavailable SMART warning was missed")
 publish(snapshot(drive(45)))
 
 local selfTestFailure = drive(45)

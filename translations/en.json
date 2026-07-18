@@ -163,7 +163,6 @@
     "dismissed_count": "{count} dismissed alert(s)",
     "dismissal_hint": "Dismissed alerts return if they escalate or recur.",
     "smart_unavailable": "Full SMART data is unavailable for {drive}.",
-    "smart_partial": "Some optional SMART details are unavailable for {drive}.",
     "health_failed": "{drive} reports a failed SMART health check.",
     "temperature_warning": "{drive} is at {temperature} °C (warning threshold: {threshold} °C).",
     "temperature_cooling": "{drive} is cooling at {temperature} °C; the alert clears below {threshold} °C.",

@@ -31,7 +31,7 @@ The panel intentionally separates two often-confused values:
 - Temperature and endurance status colors with configurable thresholds
 - Deduplicated desktop alerts for SMART failure, high temperature, low
   endurance/spare capacity, NVMe critical warnings, media/integrity errors,
-  failed self-tests, partial SMART reads, missing drives, critically full
+  failed self-tests, missing drives, critically full
   mounted storage, and collector failures
 - Persistent active-alert state, worsening-counter notifications, unsafe
   shutdown change detection, and optional recovery notifications

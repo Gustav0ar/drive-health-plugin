@@ -116,12 +116,6 @@ local function evaluateDrive(drive, previousActive)
       noctalia.tr("alerts.smart_unavailable", { drive = name }), 1, false
     ))
   end
-  if drive.smart_completeness == "partial" then
-    table.insert(issues, driveIssue(
-      drive, "smart-partial", "warning",
-      noctalia.tr("alerts.smart_partial", { drive = name }), 1, false
-    ))
-  end
   if drive.health == "failed" then
     table.insert(issues, driveIssue(
       drive, "health", "critical",

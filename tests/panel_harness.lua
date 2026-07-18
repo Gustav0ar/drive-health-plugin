@@ -165,6 +165,11 @@ watchers.snapshot(state.snapshot)
 onDrive1Clicked()
 assert(containsText(rendered, "self_test.title"), "expanded self-test card did not render")
 assert(containsText(rendered, "self_test.progress"), "running self-test progress did not render")
+state.snapshot.disks[1].smart_completeness = "partial"
+watchers.snapshot(state.snapshot)
+assert(containsText(rendered, "smart.partial_details"), "partial SMART status lost its inline explanation")
+state.snapshot.disks[1].smart_completeness = "full"
+watchers.snapshot(state.snapshot)
 local testProgress = assert(findNodeWithProp(rendered, "progress", "progress", 0.37),
   "running self-test progress bar did not render")
 assert(testProgress.props.progress == 0.37 and testProgress.props.value == nil,
@@ -276,7 +281,7 @@ assert(not containsText(rendered, "● history.life"), "missing endurance histor
 
 state.snapshot.issues = {
   { id = "SERIAL1:temperature", severity = "warning", message = "Fixture temperature warning" },
-  { id = "SERIAL1:smart-partial", severity = "warning", message = "Fixture partial SMART warning" },
+  { id = "SERIAL1:interface-crc", severity = "warning", message = "Fixture interface CRC warning" },
 }
 state.snapshot.summary.active_alert_count = 2
 state.snapshot.summary.dismissed_alert_count = 0
