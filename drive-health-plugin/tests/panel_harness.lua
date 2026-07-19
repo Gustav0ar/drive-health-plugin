@@ -81,7 +81,9 @@ state.snapshot = {
     uninstall_command = "sudo '/mock/plugin/packaging/uninstall-system-collector.sh'" },
   summary = { disk_count = 2, ssd_count = 1, hdd_count = 1, smart_available_count = 2,
     ssd_smart_available_count = 1, hottest_drive_temperature_c = 70,
-    hottest_ssd_temperature_c = 70, worst_ssd_remaining_life_percent = 95 },
+    hottest_drive_name = "Fixture SSD", hottest_ssd_temperature_c = 70,
+    hottest_ssd_drive_name = "Fixture SSD", worst_ssd_remaining_life_percent = 95,
+    worst_ssd_life_drive_name = "Fixture SSD" },
   issues = {},
   disks = { {
     id = "SERIAL1", model = "Fixture SSD", display_name = "Fixture SSD", device = "/dev/nvme0n1",
@@ -166,6 +168,8 @@ assert(rendered ~= nil and not containsText(rendered, "collector.title"),
   "healthy collector consumed panel space")
 assert(findNodeWithProp(rendered, "glyph", "name", "server-2") ~= nil,
   "panel header did not use the physical-storage icon")
+assert(countText(rendered, "Fixture SSD") >= 3,
+  "summary cards did not identify the hottest and lowest-life drives")
 assert(containsText(rendered, "metrics.mounted_at /  ·  /home/example"),
   "mounted drive card omitted its mounted folders")
 onToggleCollectorSettingsClicked()
@@ -377,5 +381,18 @@ state.snapshot.dependencies = {
 }
 watchers.snapshot(state.snapshot)
 assert(containsText(rendered, "dependencies.title"), "missing dependency card did not render")
+
+state.snapshot.dependencies = { ready = true }
+state.snapshot.disks = { state.snapshot.disks[2] }
+state.snapshot.summary = {
+  disk_count = 1, ssd_count = 0, hdd_count = 1, smart_available_count = 1,
+  hdd_smart_available_count = 1, hottest_drive_temperature_c = 36,
+  hottest_drive_name = "Fixture HDD",
+}
+watchers.snapshot(state.snapshot)
+assert(not containsText(rendered, "summary.lowest_ssd_life"),
+  "HDD-only system rendered the SSD-life summary card")
+assert(countText(rendered, "Fixture HDD") >= 2,
+  "HDD-only temperature summary did not identify its drive")
 
 print("panel rendering tests passed")

@@ -37,6 +37,8 @@ Clicking the widget toggles the `gustav0ar/drive-health-plugin:drives` panel.
   for starting short or long tests
 - Mounted-filesystem use aggregated per physical drive
 - Theme-aware Noctalia v5 declarative UI
+- Summary cards identify the hottest and lowest-life drives and adapt to
+  HDD-only systems
 - Compact, expandable drive cards and retained temperature/endurance graphs
 - Per-drive aliases, ordering, visibility, alert toggles, missing-drive alerts,
   and temperature/endurance thresholds
@@ -259,7 +261,7 @@ Update the Git source and hot-reload the enabled plugin with:
 noctalia msg plugins update drive-health
 ```
 
-Plugin 1.1.3 expects the 1.0.0 optional system collector. When Full SMART is
+Plugin 1.1.4 expects the 1.0.0 optional system collector. When Full SMART is
 enabled, every refresh verifies this version. After a plugin update changes the
 required collector version, Drive Health shows a one-time update notification
 and a persistent **Upgrade collector** action until the root-owned copy matches.

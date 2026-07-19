@@ -435,6 +435,7 @@ local mixed = assert(normalizeRaw({
   smart = {
     { requested_device = "/dev/sda", payload = {
       smart_status = { passed = true }, temperature = { current = 42 },
+      nvme_smart_health_information_log = { percentage_used = 12 },
       ata_smart_attributes = { table = {} },
     } },
     { requested_device = "/dev/sdb", payload = {
@@ -447,6 +448,13 @@ assert(mixed.summary.disk_count == 2 and mixed.summary.ssd_count == 1 and mixed.
   "mixed SSD/HDD summary counts were incorrect")
 assert(mixed.summary.smart_available_count == 2 and mixed.summary.hottest_drive_temperature_c == 42,
   "mixed-drive SMART or temperature summary was incorrect")
+assert(mixed.summary.hottest_drive_id == "SSD1" and mixed.summary.hottest_drive_name == "Fixture SSD"
+    and mixed.summary.hottest_ssd_drive_id == "SSD1",
+  "temperature summary omitted the responsible drive")
+assert(mixed.summary.worst_ssd_remaining_life_percent == 88
+    and mixed.summary.worst_ssd_life_drive_id == "SSD1"
+    and mixed.summary.worst_ssd_life_drive_name == "Fixture SSD",
+  "SSD-life summary omitted the responsible drive")
 
 local healthyRaw = assert(normalizeRaw({
   schema = 2,

@@ -157,6 +157,19 @@ local function progressMetric(label, value, display, fill)
   })
 end
 
+local function summaryCard(value, label, detail, color)
+  local children = {
+    ui.label({ text = value, fontSize = 20, fontWeight = "bold", color = color }),
+    ui.label({ text = label, fontSize = 11, color = "on_surface_variant" }),
+  }
+  if detail ~= nil and tostring(detail) ~= "" then
+    table.insert(children, ui.label({ text = tostring(detail), fontSize = 9,
+      color = "on_surface_variant/0.78", maxLines = 1 }))
+  end
+  return ui.column({ gap = 2, padding = 10, radius = 10,
+    fill = color .. "/0.12", flexGrow = 1 }, children)
+end
+
 local function healthInfo(drive)
   if drive.health == "passed" then
     return noctalia.tr("health.passed"), "primary", "check"
@@ -945,7 +958,9 @@ local function render()
   currentIssues = type(snapshot and snapshot.issues) == "table" and snapshot.issues or {}
   local includeHdd = noctalia.getConfig("show_hdd") ~= false
   local hottest = tonumber(includeHdd and summary.hottest_drive_temperature_c or summary.hottest_ssd_temperature_c)
+  local hottestDriveName = includeHdd and summary.hottest_drive_name or summary.hottest_ssd_drive_name
   local remaining = tonumber(summary.worst_ssd_remaining_life_percent)
+  local lowestLifeDriveName = summary.worst_ssd_life_drive_name
   local ssdCount = number(summary.ssd_count, 0)
   local hddCount = includeHdd and number(summary.hdd_count, 0) or 0
   local driveCount = ssdCount + hddCount
@@ -976,22 +991,18 @@ local function render()
       table.insert(body, collectorSettings)
     end
 
-    table.insert(body, ui.row({ gap = 10, align = "stretch" }, {
-      ui.column({ gap = 2, padding = 10, radius = 10, fill = "primary/0.12", flexGrow = 1 }, {
-        ui.label({ text = tostring(driveCount), fontSize = 20, fontWeight = "bold", color = "primary" }),
-        ui.label({ text = noctalia.tr("summary.drives"), fontSize = 11, color = "on_surface_variant" }),
-        ui.label({ text = noctalia.tr("summary.drive_mix", { ssds = ssdCount, hdds = hddCount }),
-          fontSize = 9, color = "on_surface_variant/0.78" }),
-      }),
-      ui.column({ gap = 2, padding = 10, radius = 10, fill = temperatureColor(hottest) .. "/0.12", flexGrow = 1 }, {
-        ui.label({ text = hottest ~= nil and string.format("%.0f °C", hottest) or "-- °C", fontSize = 20, fontWeight = "bold", color = temperatureColor(hottest) }),
-        ui.label({ text = noctalia.tr("summary.hottest"), fontSize = 11, color = "on_surface_variant" }),
-      }),
-      ui.column({ gap = 2, padding = 10, radius = 10, fill = "secondary/0.12", flexGrow = 1 }, {
-        ui.label({ text = formatPercent(remaining), fontSize = 20, fontWeight = "bold", color = "secondary" }),
-        ui.label({ text = noctalia.tr("summary.lowest_ssd_life"), fontSize = 11, color = "on_surface_variant" }),
-      }),
-    }))
+    local hottestColor = temperatureColor(hottest)
+    local summaryCards = {
+      summaryCard(tostring(driveCount), noctalia.tr("summary.drives"),
+        noctalia.tr("summary.drive_mix", { ssds = ssdCount, hdds = hddCount }), "primary"),
+      summaryCard(hottest ~= nil and string.format("%.0f °C", hottest) or "-- °C",
+        noctalia.tr("summary.hottest"), hottestDriveName, hottestColor),
+    }
+    if ssdCount > 0 then
+      table.insert(summaryCards, summaryCard(formatPercent(remaining),
+        noctalia.tr("summary.lowest_ssd_life"), lowestLifeDriveName, "secondary"))
+    end
+    table.insert(body, ui.row({ gap = 10, align = "stretch" }, summaryCards))
 
     local alerts = alertsCard(currentIssues)
     if alerts ~= nil then

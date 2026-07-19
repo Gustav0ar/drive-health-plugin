@@ -588,8 +588,11 @@ local function summarize(disks)
   local selfTestFailures = 0
   local ssdSelfTestFailures = 0
   local hottest = nil
+  local hottestDrive = nil
   local hottestSsd = nil
+  local hottestSsdDrive = nil
   local lowestLife = nil
+  local lowestLifeDrive = nil
   for _, disk in ipairs(disks) do
     local isSsd = disk.kind == "ssd"
     if isSsd then
@@ -615,12 +618,20 @@ local function summarize(disks)
     end
     local temperature = tonumber(isSsd and noctalia.getConfig("use_hotspot_temperature") ~= false
       and disk.hotspot_temperature_c or disk.temperature_c)
-    hottest = temperature ~= nil and (hottest == nil and temperature or math.max(hottest, temperature)) or hottest
+    if temperature ~= nil and (hottest == nil or temperature > hottest) then
+      hottest = temperature
+      hottestDrive = disk
+    end
     if isSsd then
-      hottestSsd = temperature ~= nil
-        and (hottestSsd == nil and temperature or math.max(hottestSsd, temperature)) or hottestSsd
+      if temperature ~= nil and (hottestSsd == nil or temperature > hottestSsd) then
+        hottestSsd = temperature
+        hottestSsdDrive = disk
+      end
       local life = tonumber(disk.remaining_life_percent)
-      lowestLife = life ~= nil and (lowestLife == nil and life or math.min(lowestLife, life)) or lowestLife
+      if life ~= nil and (lowestLife == nil or life < lowestLife) then
+        lowestLife = life
+        lowestLifeDrive = disk
+      end
     end
   end
   return {
@@ -633,6 +644,8 @@ local function summarize(disks)
     partial_smart_count = partial,
     self_test_failure_count = selfTestFailures,
     hottest_drive_temperature_c = hottest,
+    hottest_drive_id = hottestDrive and hottestDrive.id or nil,
+    hottest_drive_name = hottestDrive and hottestDrive.display_name or nil,
     ssd_smart_available_count = ssdSmartAvailable,
     ssd_smart_unavailable_count = ssdCount - ssdSmartAvailable,
     hdd_smart_available_count = smartAvailable - ssdSmartAvailable,
@@ -641,7 +654,11 @@ local function summarize(disks)
     ssd_partial_smart_count = ssdPartial,
     ssd_self_test_failure_count = ssdSelfTestFailures,
     hottest_ssd_temperature_c = hottestSsd,
+    hottest_ssd_drive_id = hottestSsdDrive and hottestSsdDrive.id or nil,
+    hottest_ssd_drive_name = hottestSsdDrive and hottestSsdDrive.display_name or nil,
     worst_ssd_remaining_life_percent = lowestLife,
+    worst_ssd_life_drive_id = lowestLifeDrive and lowestLifeDrive.id or nil,
+    worst_ssd_life_drive_name = lowestLifeDrive and lowestLifeDrive.display_name or nil,
   }
 end
 
