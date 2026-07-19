@@ -182,8 +182,8 @@ assert(terminalCommand == "sudo systemctl disable --now noctalia-smart-monitor.t
   "collector settings did not expose the explicit service pause command")
 terminalCommand = nil
 onOpenPluginSettingsClicked()
-assert(asyncCommand == "noctalia msg settings-toggle",
-  "collector settings did not open Noctalia's overall settings")
+assert(asyncCommand == "noctalia msg settings-open plugins",
+  "collector settings did not open Noctalia's Plugins section")
 onToggleCollectorSettingsClicked()
 state.snapshot.system_collector.status = "upgrade-required"
 state.snapshot.system_collector.version = "0.6.0"

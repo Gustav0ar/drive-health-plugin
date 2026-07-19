@@ -116,7 +116,7 @@
     "full_title": "Full SMART — optional",
     "full_features": "Reliable health, endurance, error counters, sensor details, and background self-test progress.",
     "settings_hint": "Enable or disable Full SMART from Settings → Plugins → Drive Health. Privileged actions always open a terminal for review.",
-    "settings_opened": "Open Plugins, then select the gear on Drive Health.",
+    "settings_opened": "Opened Plugins. Select the gear on Drive Health.",
     "update_title": "Drive Health collector update available",
     "update_body": "Full SMART is enabled. Update collector {current} to {expected} from the Drive Health panel to keep all features working."
   },

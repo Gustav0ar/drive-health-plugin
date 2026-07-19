@@ -116,7 +116,7 @@
     "full_title": "SMART completo — opcional",
     "full_features": "Saúde, vida útil, contadores de erro, detalhes dos sensores e progresso dos autotestes com maior confiabilidade.",
     "settings_hint": "Ative ou desative o SMART completo em Configurações → Plugins → Drive Health. Ações privilegiadas sempre abrem um terminal para revisão.",
-    "settings_opened": "Abra Plugins e selecione a engrenagem do Drive Health.",
+    "settings_opened": "Plugins foi aberto. Selecione a engrenagem do Drive Health.",
     "update_title": "Atualização do coletor do Drive Health disponível",
     "update_body": "O SMART completo está ativo. Atualize o coletor {current} para {expected} pelo painel do Drive Health para manter todos os recursos funcionando."
   },

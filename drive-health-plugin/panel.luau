@@ -1446,7 +1446,7 @@ end
 
 function onOpenPluginSettingsClicked()
   panel.close()
-  noctalia.runAsync("noctalia msg settings-toggle", function(_result) end, 5000)
+  noctalia.runAsync("noctalia msg settings-open plugins", function(_result) end, 5000)
   noctalia.notify(noctalia.tr("collector.settings_title"), noctalia.tr("collector.settings_opened"))
 end
 

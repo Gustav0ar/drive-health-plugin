@@ -261,7 +261,7 @@ Update the Git source and hot-reload the enabled plugin with:
 noctalia msg plugins update drive-health
 ```
 
-Plugin 1.1.4 expects the 1.0.0 optional system collector. When Full SMART is
+Plugin 1.1.5 expects the 1.0.0 optional system collector. When Full SMART is
 enabled, every refresh verifies this version. After a plugin update changes the
 required collector version, Drive Health shows a one-time update notification
 and a persistent **Upgrade collector** action until the root-owned copy matches.
