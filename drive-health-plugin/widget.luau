@@ -39,7 +39,6 @@ local function render()
   local unhealthy = number(summary.unhealthy_count, number(summary.ssd_unhealthy_count, 0))
   local alerts = number(summary.active_alert_count, 0)
   local criticalAlerts = number(summary.critical_alert_count, 0)
-  local dismissedAlerts = number(summary.dismissed_alert_count, 0)
   local tempText = hottest ~= nil and string.format("%.0f°", hottest) or "--°"
   local lifeText = remaining ~= nil and string.format("%.0f%%", remaining) or "--%"
   local stateColor = (criticalAlerts > 0 or unhealthy > 0) and "error" or (alerts > 0 and "secondary" or temperatureColor(hottest))
@@ -89,9 +88,6 @@ local function render()
     end
   else
     tooltip ..= "\n" .. noctalia.tr("widget.no_alerts")
-  end
-  if dismissedAlerts > 0 then
-    tooltip ..= "\n" .. noctalia.tr("widget.dismissed_alerts", { count = math.floor(dismissedAlerts) })
   end
   barWidget.setTooltip(tooltip)
 end

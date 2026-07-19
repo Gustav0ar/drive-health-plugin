@@ -137,9 +137,8 @@ the plugin settings. The panel always lists active alerts and the bar widget
 shows their count, even when desktop alerts are disabled.
 
 Panel alerts can be dismissed individually or all at once. Dismissals persist
-across Noctalia restarts and can be restored from the alert card. A dismissed
-alert returns automatically if it becomes critical, its underlying hardware
-counter grows, or the condition clears and later recurs.
+across Noctalia restarts and permanently suppress the same alert. When no
+visible alerts remain, the alert card is removed from the panel.
 
 Historical NVMe/ATA error-log entries and pre-existing unsafe-shutdown totals
 are shown as diagnostics but are not treated as current failures. Growth after
@@ -260,7 +259,7 @@ Update the Git source and hot-reload the enabled plugin with:
 noctalia msg plugins update drive-health
 ```
 
-Plugin 1.1.2 expects the 1.0.0 optional system collector. When Full SMART is
+Plugin 1.1.3 expects the 1.0.0 optional system collector. When Full SMART is
 enabled, every refresh verifies this version. After a plugin update changes the
 required collector version, Drive Health shows a one-time update notification
 and a persistent **Upgrade collector** action until the root-owned copy matches.

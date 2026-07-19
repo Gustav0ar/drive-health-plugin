@@ -12,8 +12,7 @@
     "tooltip": "{count} drives ({ssds} SSD, {hdds} HDD) • hottest {temperature} • lowest SSD life {remaining}",
     "smart_unavailable": "Full SMART access unavailable for {count} drive(s)",
     "active_alerts": "{count} active SMART alert(s)",
-    "no_alerts": "No active alerts",
-    "dismissed_alerts": "{count} alert(s) dismissed — open the panel to restore"
+    "no_alerts": "No active alerts"
   },
   "panel": {
     "title": "Drive Health",
@@ -171,13 +170,8 @@
     "collector_title": "SMART Monitor collector problem",
     "collector_error": "Drive monitoring could not refresh: {error}",
     "active_title": "{count} active drive alert(s)",
-    "none_active": "No active SMART or storage issues detected.",
-    "none_visible": "No visible drive alerts",
     "dismiss": "Dismiss alert",
     "dismiss_all": "Dismiss all",
-    "restore_dismissed": "Restore dismissed",
-    "dismissed_count": "{count} dismissed alert(s)",
-    "dismissal_hint": "Dismissed alerts return if they escalate or recur.",
     "smart_unavailable": "Full SMART data is unavailable for {drive}.",
     "health_failed": "{drive} reports a failed SMART health check.",
     "temperature_warning": "{drive} is at {temperature} °C (warning threshold: {threshold} °C).",

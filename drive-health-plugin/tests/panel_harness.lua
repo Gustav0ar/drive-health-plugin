@@ -342,7 +342,6 @@ state.snapshot.issues = {
   { id = "SERIAL1:interface-crc", severity = "warning", message = "Fixture interface CRC warning" },
 }
 state.snapshot.summary.active_alert_count = 2
-state.snapshot.summary.dismissed_alert_count = 0
 watchers.snapshot(state.snapshot)
 assert(containsText(rendered, "alerts.dismiss_all"), "dismiss-all alert action did not render")
 assert(findNodeWithProp(rendered, "button", "tooltip", "alerts.dismiss") ~= nil,
@@ -355,12 +354,10 @@ assert(state.dismiss_alert_request.all == true, "dismiss-all action did not requ
 
 state.snapshot.issues = {}
 state.snapshot.summary.active_alert_count = 0
-state.snapshot.summary.dismissed_alert_count = 2
 watchers.snapshot(state.snapshot)
-assert(containsText(rendered, "alerts.none_visible") and containsText(rendered, "alerts.restore_dismissed"),
-  "dismissed-alert state did not offer a restore action")
-onRestoreDismissedAlertsClicked()
-assert(state.dismiss_alert_request.restore_all == true, "restore action did not request dismissed alerts")
+assert(not containsText(rendered, "alerts.active_title")
+    and findNodeWithProp(rendered, "button", "tooltip", "alerts.dismiss") == nil,
+  "empty alert state kept an alert card or dismiss controls")
 
 onDrive2Clicked()
 assert(containsText(rendered, "metrics.start_stop_count")

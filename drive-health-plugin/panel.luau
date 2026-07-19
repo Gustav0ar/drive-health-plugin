@@ -178,29 +178,9 @@ local function appendMetricRows(target, metrics)
   end
 end
 
-local function alertsCard(issues, dismissedCount)
-  dismissedCount = math.max(0, math.floor(number(dismissedCount, 0)))
+local function alertsCard(issues)
   if type(issues) ~= "table" or #issues == 0 then
-    if dismissedCount > 0 then
-      return ui.column({ gap = 7, padding = 10, radius = 10, fill = "surface_variant/0.24" }, {
-        ui.row({ gap = 8, align = "center" }, {
-          ui.glyph({ name = "eye-off", size = 16, color = "on_surface_variant" }),
-          ui.column({ gap = 1, flexGrow = 1 }, {
-            ui.label({ text = noctalia.tr("alerts.none_visible"), fontSize = 11,
-              color = "on_surface", fontWeight = "medium" }),
-            ui.label({ text = noctalia.tr("alerts.dismissed_count", { count = dismissedCount }),
-              fontSize = 10, color = "on_surface_variant" }),
-          }),
-          ui.button({ text = noctalia.tr("alerts.restore_dismissed"), variant = "ghost", controlSize = "sm",
-            onClick = "onRestoreDismissedAlertsClicked" }),
-        }),
-        ui.label({ text = noctalia.tr("alerts.dismissal_hint"), fontSize = 10, color = "on_surface_variant" }),
-      })
-    end
-    return ui.row({ gap = 8, padding = 10, radius = 10, fill = "primary/0.10", align = "center" }, {
-      ui.glyph({ name = "shield-check", size = 16, color = "primary" }),
-      ui.label({ text = noctalia.tr("alerts.none_active"), fontSize = 11, color = "primary", fontWeight = "medium" }),
-    })
+    return nil
   end
 
   local header = {
@@ -212,10 +192,6 @@ local function alertsCard(issues, dismissedCount)
       flexGrow = 1,
     }),
   }
-  if dismissedCount > 0 then
-    table.insert(header, ui.button({ text = noctalia.tr("alerts.restore_dismissed"), variant = "ghost",
-      controlSize = "sm", onClick = "onRestoreDismissedAlertsClicked" }))
-  end
   table.insert(header, ui.button({ text = noctalia.tr("alerts.dismiss_all"), variant = "ghost", controlSize = "sm",
     onClick = "onDismissAllAlertsClicked" }))
   local rows = { ui.row({ gap = 7, align = "center" }, header) }
@@ -1017,7 +993,10 @@ local function render()
       }),
     }))
 
-    table.insert(body, alertsCard(currentIssues, summary.dismissed_alert_count))
+    local alerts = alertsCard(currentIssues)
+    if alerts ~= nil then
+      table.insert(body, alerts)
+    end
 
     if smartAvailable < driveCount then
       table.insert(body, ui.row({ gap = 8, padding = 10, radius = 10, fill = "secondary/0.12", align = "center" }, {
@@ -1184,10 +1163,6 @@ function onDismissAllAlertsClicked()
   if #currentIssues > 0 then
     sendDismissRequest({ all = true })
   end
-end
-
-function onRestoreDismissedAlertsClicked()
-  sendDismissRequest({ restore_all = true })
 end
 
 local function expandedDrive()

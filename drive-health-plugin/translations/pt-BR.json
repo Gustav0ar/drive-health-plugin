@@ -12,8 +12,7 @@
     "tooltip": "{count} unidades ({ssds} SSD, {hdds} HDD) • mais quente {temperature} • menor vida de SSD {remaining}",
     "smart_unavailable": "Acesso SMART completo indisponível para {count} unidade(s)",
     "active_alerts": "{count} alerta(s) SMART ativo(s)",
-    "no_alerts": "Nenhum alerta ativo",
-    "dismissed_alerts": "{count} alerta(s) dispensado(s) — abra o painel para restaurar"
+    "no_alerts": "Nenhum alerta ativo"
   },
   "panel": {
     "title": "Saúde das unidades",
@@ -171,13 +170,8 @@
     "collector_title": "Problema no coletor do SMART Monitor",
     "collector_error": "Não foi possível atualizar o monitoramento das unidades: {error}",
     "active_title": "{count} alerta(s) ativo(s) nas unidades",
-    "none_active": "Nenhum problema SMART ou de armazenamento ativo foi detectado.",
-    "none_visible": "Nenhum alerta de unidade visível",
     "dismiss": "Dispensar alerta",
     "dismiss_all": "Dispensar todos",
-    "restore_dismissed": "Restaurar dispensados",
-    "dismissed_count": "{count} alerta(s) dispensado(s)",
-    "dismissal_hint": "Alertas dispensados retornam se piorarem ou ocorrerem novamente.",
     "smart_unavailable": "Os dados SMART completos estão indisponíveis para {drive}.",
     "health_failed": "{drive} informa falha na verificação de saúde SMART.",
     "temperature_warning": "{drive} está a {temperature} °C (limite de alerta: {threshold} °C).",

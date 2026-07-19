@@ -55,7 +55,6 @@ state.snapshot = {
     unhealthy_count = 0,
     active_alert_count = 0,
     critical_alert_count = 0,
-    dismissed_alert_count = 0,
   },
   issues = {},
 }
@@ -95,12 +94,6 @@ watchers.snapshot(state.snapshot)
 assert(findNodeWithProp(rendered, "glyph", "color", "error") ~= nil,
   "unhealthy HDD was excluded from the mixed-drive widget state")
 state.snapshot.summary.unhealthy_count = 0
-
-state.snapshot.summary.dismissed_alert_count = 2
-watchers.snapshot(state.snapshot)
-assert(tooltip:find("widget.dismissed_alerts", 1, true),
-  "widget tooltip did not disclose restorable dismissed alerts")
-state.snapshot.summary.dismissed_alert_count = 0
 
 state.snapshot.summary.active_alert_count = 1
 state.snapshot.summary.critical_alert_count = 1

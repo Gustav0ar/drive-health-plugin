@@ -119,17 +119,6 @@ local function severityRank(severity)
   return severity == "critical" and 2 or 1
 end
 
-local function dismissalFingerprint(issue)
-  local parts = { tostring(issue.severity or "warning") }
-  if issue.revision ~= nil then
-    table.insert(parts, "revision=" .. tostring(issue.revision))
-  end
-  if issue.monotonic == true then
-    table.insert(parts, "value=" .. tostring(issue.value))
-  end
-  return table.concat(parts, "|")
-end
-
 local function sendIssueNotification(issue)
   if not boolConfig("alerts_enabled", true) then
     return
@@ -436,7 +425,6 @@ local function processSnapshot(snapshot)
   end
 
   for _, issue in ipairs(issues) do
-    issue.dismissal_fingerprint = dismissalFingerprint(issue)
     local previous = previousActive[issue.id]
     local isNew = previous == nil
     local escalated = previous ~= nil and severityRank(issue.severity) > severityRank(previous.severity)
@@ -444,7 +432,7 @@ local function processSnapshot(snapshot)
       and tonumber(issue.value) ~= nil and tonumber(previous.value) ~= nil
       and tonumber(issue.value) > tonumber(previous.value)
     local changed = previous ~= nil and issue.revision ~= nil and issue.revision ~= previous.revision
-    if isNew or escalated or worsened or changed then
+    if dismissed[issue.id] == nil and (isNew or escalated or worsened or changed) then
       sendIssueNotification(issue)
     end
   end
@@ -467,19 +455,10 @@ local function processSnapshot(snapshot)
     end
     return tostring(left.title) < tostring(right.title)
   end)
-  for id, dismissal in pairs(dismissed) do
-    local current = active[id]
-    if current == nil or type(dismissal) ~= "table"
-        or dismissal.fingerprint ~= current.dismissal_fingerprint then
-      dismissed[id] = nil
-    end
-  end
-
   local visibleIssues = {}
   local criticalCount = 0
   for _, issue in ipairs(issues) do
-    local dismissal = dismissed[issue.id]
-    if dismissal == nil or dismissal.fingerprint ~= issue.dismissal_fingerprint then
+    if dismissed[issue.id] == nil then
       table.insert(visibleIssues, issue)
       if issue.severity == "critical" then
         criticalCount += 1
@@ -495,11 +474,7 @@ local function processSnapshot(snapshot)
   snapshot.summary = snapshot.summary or {}
   snapshot.summary.active_alert_count = #visibleIssues
   snapshot.summary.critical_alert_count = criticalCount
-  local dismissedCount = 0
-  for _ in pairs(dismissed) do
-    dismissedCount += 1
-  end
-  snapshot.summary.dismissed_alert_count = dismissedCount
+  snapshot.summary.dismissed_alert_count = nil
   persistAlertState()
   noctalia.state.set("snapshot", snapshot)
 end
@@ -515,12 +490,9 @@ noctalia.state.watch("dismiss_alert_request", function(request)
     return
   end
   local dismissed = copyStateValue(alertState.dismissed or {})
-  if request.restore_all == true then
-    dismissed = {}
-  elseif request.all == true then
-    for id, issue in pairs(alertState.active or {}) do
+  if request.all == true then
+    for id in pairs(alertState.active or {}) do
       dismissed[id] = {
-        fingerprint = issue.dismissal_fingerprint or dismissalFingerprint(issue),
         dismissed_at = os.time(),
       }
     end
@@ -529,7 +501,6 @@ noctalia.state.watch("dismiss_alert_request", function(request)
     local issue = (alertState.active or {})[id]
     if issue ~= nil then
       dismissed[id] = {
-        fingerprint = issue.dismissal_fingerprint or dismissalFingerprint(issue),
         dismissed_at = os.time(),
       }
     end

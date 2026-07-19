@@ -142,22 +142,8 @@ assert(#state.snapshot.issues == 1 and state.snapshot.issues[1].message == "aler
   "temperature hysteresis displayed a contradictory threshold message")
 assert(#notifications == 1, "cooling hysteresis duplicated its warning notification")
 
-local writesBeforeDismissal = #stateWrites
-dismiss({ id = "SERIAL1:temperature", nonce = 1 })
-assert(#state.snapshot.issues == 0 and state.snapshot.summary.dismissed_alert_count == 1,
-  "individual dismissal did not hide the active issue")
-assert(#notifications == 1, "dismissing an issue emitted a notification")
-assert(#stateWrites == writesBeforeDismissal + 1 and #stateRenames == writesBeforeDismissal + 1,
-  "dismissal was not persisted as exactly one atomic commit")
-
-publish(snapshot(drive(63)))
-assert(#state.snapshot.issues == 0 and state.snapshot.summary.dismissed_alert_count == 1,
-  "dismissal did not persist across an unchanged scan")
-assert(#notifications == 1, "dismissed issue duplicated its notification")
-
 publish(snapshot(drive(85)))
 assert(state.snapshot.issues[1].severity == "critical", "critical escalation was missed")
-assert(state.snapshot.summary.dismissed_alert_count == 0, "critical escalation stayed dismissed")
 assert(#notifications == 2 and notifications[2].severity == "critical", "critical escalation did not notify")
 
 local writesBeforeRecovery = #stateWrites
@@ -169,33 +155,13 @@ assert(#stateWrites == writesBeforeRecovery + 1 and #stateRenames == writesBefor
 
 publish(snapshot(drive(70)))
 assert(#notifications == 4, "recurring temperature issue did not notify")
-dismiss({ id = "SERIAL1:temperature", nonce = 2 })
 publish(snapshot(drive(45)))
-assert(state.snapshot.summary.dismissed_alert_count == 0, "resolved issue left a stale dismissal")
-assert(#notifications == 4, "dismissed issue emitted an unwanted recovery notification")
-publish(snapshot(drive(70)))
-assert(#state.snapshot.issues == 1 and #notifications == 5,
-  "issue recurrence after resolution remained dismissed")
-dismiss({ id = "SERIAL1:temperature", nonce = 3 })
-local writesBeforeRestore = #stateWrites
-dismiss({ restore_all = true, nonce = 4 })
-assert(#state.snapshot.issues == 1 and state.snapshot.summary.dismissed_alert_count == 0,
-  "restoring dismissals did not reveal the active issue")
-assert(#notifications == 5, "restoring an issue duplicated its notification")
-assert(#stateWrites == writesBeforeRestore + 1 and #stateRenames == writesBeforeRestore + 1,
-  "restoring dismissals was not persisted as exactly one atomic commit")
-publish(snapshot(drive(45)))
+assert(#notifications == 5, "temperature recovery did not notify")
 
 local multiple = drive(70)
 multiple.interface_crc_errors = 2
 publish(snapshot(multiple))
 assert(#state.snapshot.issues == 2, "multi-alert fixture did not produce two issues")
-dismiss({ all = true, nonce = 5 })
-assert(#state.snapshot.issues == 0 and state.snapshot.summary.dismissed_alert_count == 2,
-  "dismiss all did not hide every active issue")
-dismiss({ restore_all = true, nonce = 6 })
-assert(#state.snapshot.issues == 2 and state.snapshot.summary.dismissed_alert_count == 0,
-  "restore dismissed did not reveal all issues")
 publish(snapshot(drive(45)))
 
 local hddIssue = drive(35)
@@ -280,11 +246,6 @@ onConfigChanged()
 assert(findIssue("drive-missing") == nil, "a config refresh advanced the grace period")
 assert(#stateWrites == writesBeforeMissingScan + 1,
   "config refresh rewrote unchanged missing-drive state")
-dismiss({ restore_all = true, nonce = 7 })
-assert(findIssue("drive-missing") == nil, "a dismissal refresh advanced the grace period")
-assert(#stateWrites == writesBeforeMissingScan + 1,
-  "no-op dismissal refresh rewrote unchanged missing-drive state")
-
 local collectingSnapshot = snapshot(nil, "scan-collecting")
 collectingSnapshot.collecting = true
 publish(collectingSnapshot)
@@ -383,7 +344,8 @@ local writesBeforeRenameFailure = #stateWrites
 local renamesBeforeRenameFailure = #stateRenames
 local commitsBeforeRenameFailure = successfulStateCommits
 failNextStateRename = true
-dismiss({ restore_all = true, nonce = 9 })
+dismiss({ all = true, nonce = 9 })
+assert(#state.snapshot.issues == 0, "dismiss all did not hide every active issue")
 assert(#stateWrites == writesBeforeRenameFailure + 1
     and #stateRenames == renamesBeforeRenameFailure + 1
     and successfulStateCommits == commitsBeforeRenameFailure,
@@ -396,6 +358,25 @@ assert(#stateWrites == writesBeforeRenameFailure + 2
 onConfigChanged()
 assert(#stateWrites == writesBeforeRenameFailure + 2,
   "successful rename retry did not clear dirty alert state")
+
+publish(snapshot(drive(45), "scan-dismissal-baseline"))
+publish(snapshot(drive(70), "scan-dismissal-warning"))
+assert(findIssue("temperature") ~= nil, "permanent-dismissal fixture did not create an alert")
+local notificationsBeforeDismissal = #notifications
+local writesBeforeDismissal = #stateWrites
+local renamesBeforeDismissal = #stateRenames
+dismiss({ id = "SERIAL1:temperature", nonce = 10 })
+assert(findIssue("temperature") == nil, "individual dismissal did not hide the active issue")
+assert(#notifications == notificationsBeforeDismissal, "dismissing an issue emitted a notification")
+assert(#stateWrites == writesBeforeDismissal + 1 and #stateRenames == renamesBeforeDismissal + 1,
+  "dismissal was not persisted as exactly one atomic commit")
+publish(snapshot(drive(85), "scan-dismissal-critical"))
+assert(findIssue("temperature") == nil and #notifications == notificationsBeforeDismissal,
+  "a dismissed alert returned or notified after escalating")
+publish(snapshot(drive(45), "scan-dismissal-recovery"))
+publish(snapshot(drive(70), "scan-dismissal-recurrence"))
+assert(findIssue("temperature") == nil and #notifications == notificationsBeforeDismissal,
+  "a dismissed alert returned or notified after recurring")
 
 for _, path in ipairs(stateWrites) do
   assert(path:match("alert%-state%.json%.tmp$"),
