@@ -6,12 +6,14 @@ local state = {}
 local launchedCommand = nil
 local launchedCommands = {}
 local logs = {}
+local notifications = {}
 local files = {}
 local directories = {}
 local watchers = {}
 local pendingProbeCallback = nil
 local probeCalls = 0
 local probeAction = nil
+local collectorEnabled = mode == "raw-cache" or mode == "outdated-raw-cache" or mode == "legacy-cache"
 
 local available = {
   lsblk = mode ~= "missing-lsblk",
@@ -19,6 +21,7 @@ local available = {
   pacman = true,
   sudo = true,
   pkexec = true,
+  systemctl = true,
 }
 
 local rawFixture = {
@@ -47,11 +50,17 @@ end
 
 noctalia = {
   commandExists = function(command) return available[command] == true end,
-  getConfig = function(_key) return nil end,
+  getConfig = function(key)
+    if key == "system_collector_enabled" then
+      return collectorEnabled
+    end
+    return nil
+  end,
   pluginDir = function() return "/mock/plugin" end,
   pluginDataDir = function() return "/mock/plugin-data" end,
   fileInfo = function(path)
-    if (mode == "raw-cache" or mode == "outdated-raw-cache") and path:match("raw%.json$") then
+    if (mode == "raw-cache" or mode == "outdated-raw-cache" or mode == "collector-disabled")
+        and path:match("raw%.json$") then
       return { isDir = false, mtime = os.time() }
     elseif mode == "legacy-cache" and path:match("smart%.json$") then
       return { isDir = false, mtime = os.time() }
@@ -61,7 +70,8 @@ noctalia = {
   fileExists = function(path) return files[path] ~= nil end,
   listDir = function(path) return directories[path] or {} end,
   readFile = function(path)
-    if (mode == "raw-cache" or mode == "outdated-raw-cache") and path:match("raw%.json$") then
+    if (mode == "raw-cache" or mode == "outdated-raw-cache" or mode == "collector-disabled")
+        and path:match("raw%.json$") then
       return "raw-cache"
     end
     if mode == "legacy-cache" and path:match("smart%.json$") then return "legacy-cache" end
@@ -69,7 +79,7 @@ noctalia = {
   end,
   writeFile = function(path, contents) files[path] = contents return true end,
   log = function(message) table.insert(logs, message) end,
-  notify = function(_title, _body) end,
+  notify = function(title, body) table.insert(notifications, { title = title, body = body }) end,
   tr = translate,
   formatTime = function(_pattern, _epoch) return "22:13:20" end,
   setUpdateInterval = function(_milliseconds) end,
@@ -197,6 +207,18 @@ elseif mode == "outdated-raw-cache" then
     and snapshot.system_collector.expected_version == "1.0.0",
     "older system collector did not request an upgrade")
   assert(not (launchedCommand or ""):match("collect_raw%.sh"), "collector launched despite a fresh raw cache")
+  assert(#notifications == 1 and notifications[1].title == "collector.update_title"
+    and notifications[1].body == "collector.update_body",
+    "enabled outdated collector did not produce one coordinated update notice")
+  print("collector initialization test passed: " .. mode)
+  return
+elseif mode == "collector-disabled" then
+  assert(snapshot.source == "direct", "disabled collector still consumed the privileged cache")
+  assert(snapshot.system_collector.enabled == false and snapshot.system_collector.status == "disabled",
+    "disabled collector did not publish Basic-mode state")
+  assert((launchedCommand or ""):match("collect_raw%.sh"),
+    "disabled collector did not fall back to direct Basic collection")
+  assert(#notifications == 0, "disabled collector produced an update or installation notification")
   print("collector initialization test passed: " .. mode)
   return
 elseif mode == "legacy-cache" then
@@ -456,10 +478,12 @@ local oversizedId = assert(normalizeRaw({
 assert(oversizedId.collection_id == nil, "oversized collection ID was preserved")
 
 files["/usr/local/libexec/noctalia-smart-monitor/collect_raw.sh"] = "installed"
+collectorEnabled = true
 state.collector_snapshot = { summary = {}, system_collector = { status = "healthy" } }
 publishError("fixture failure", { ready = true, blocking = false })
 assert(state.collector_snapshot.system_collector.status == "stale",
   "collector failure retained a stale healthy lifecycle status")
+collectorEnabled = false
 
 local compatibleProbe = {
   exitCode = 0, stdout = "lsblk=ok\nsmartctl=ok\n", stderr = "", timedOut = false,

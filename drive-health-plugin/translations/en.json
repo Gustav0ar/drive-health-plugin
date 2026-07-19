@@ -4,7 +4,8 @@
     "duration_hours": "{value} h",
     "duration_years": "{value} y",
     "never": "never",
-    "not_available": "N/A"
+    "not_available": "N/A",
+    "unknown": "unknown"
   },
   "widget": {
     "loading": "Loading drive health…",
@@ -92,17 +93,33 @@
   },
   "collector": {
     "title": "System collector",
+    "settings_title": "Collector settings",
+    "status_disabled": "Basic mode is active; the optional system collector is not being used.",
     "status_healthy": "Collector {version} is installed and refreshing full SMART data.",
     "status_not_installed": "Install the read-only collector to unlock full SMART data.",
     "status_stale": "The collector is installed, but its cache is stale or unavailable.",
     "status_upgrade_required": "Collector {version} is outdated; upgrade to the bundled version.",
     "install": "Install collector",
     "upgrade": "Upgrade collector",
+    "start": "Start collector",
+    "pause": "Pause service",
+    "stop_service": "Stop background service",
+    "open_settings": "Plugin settings",
     "copy_install": "Copy command",
     "remove": "Remove collector",
     "remove_confirm": "Click Remove collector again to open the explicit privileged uninstall command.",
     "terminal_opened": "A terminal opened. Review the command and approve sudo to install or upgrade.",
-    "uninstall_terminal_opened": "A terminal opened. Review the removal command and approve sudo to continue."
+    "start_terminal_opened": "A terminal opened. Review the command and approve sudo to enable and refresh the collector.",
+    "pause_terminal_opened": "A terminal opened. Review the command and approve sudo to stop the collector timer.",
+    "uninstall_terminal_opened": "A terminal opened. Review the removal command and approve sudo to continue.",
+    "basic_title": "Basic monitoring — no elevated service",
+    "basic_features": "Drive discovery, mounted folders, storage use, and temperatures exposed by Linux.",
+    "full_title": "Full SMART — optional",
+    "full_features": "Reliable health, endurance, error counters, sensor details, and background self-test progress.",
+    "settings_hint": "Enable or disable Full SMART from Settings → Plugins → Drive Health. Privileged actions always open a terminal for review.",
+    "settings_opened": "Open Plugins, then select the gear on Drive Health.",
+    "update_title": "Drive Health collector update available",
+    "update_body": "Full SMART is enabled. Update collector {current} to {expected} from the Drive Health panel to keep all features working."
   },
     "history": {
     "title": "Drive health trends",
@@ -192,6 +209,10 @@
     "test_body": "Notifications are working. This is only a test; no drive issue was created."
   },
   "settings": {
+    "system_collector_enabled": {
+      "label": "Full SMART collector (optional)",
+      "description": "Use the separately authorized read-only system collector for reliable health, endurance, error counters, sensor details, and self-test progress. Off keeps basic drive, mount, storage, and available temperature monitoring."
+    },
     "refresh_seconds": {
       "label": "Refresh interval",
       "description": "Seconds between SMART data refreshes."

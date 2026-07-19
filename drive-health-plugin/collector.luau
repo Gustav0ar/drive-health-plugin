@@ -13,6 +13,7 @@ local PREFERENCES_FILE = "drive-preferences.json"
 local collecting = false
 local refreshNonce = 0
 local loggedDependencySignature = nil
+local notifiedCollectorUpgradeSignature = nil
 local dependencyProbe = {
   checked = false,
   running = false,
@@ -57,6 +58,10 @@ local PACKAGE_MANAGERS = {
 
 local function shellQuote(value)
   return "'" .. tostring(value):gsub("'", "'\\''") .. "'"
+end
+
+local function systemCollectorEnabled()
+  return noctalia.getConfig("system_collector_enabled") == true
 end
 
 local function numeric(value)
@@ -670,10 +675,14 @@ end
 
 local function systemCollectorState(raw, source)
   local pluginDirectory = noctalia.pluginDir()
+  local enabled = systemCollectorEnabled()
   local installed = noctalia.fileExists("/usr/local/libexec/noctalia-smart-monitor/collect_raw.sh")
-  local version = type(raw) == "table" and tostring(raw.collector_version or "") or ""
+  local reportedVersion = type(raw) == "table" and tostring(raw.collector_version or "") or ""
+  local version = source == "system-cache" and reportedVersion or ""
   local status
-  if source == "system-cache" and version == EXPECTED_COLLECTOR_VERSION then
+  if not enabled then
+    status = "disabled"
+  elseif source == "system-cache" and version == EXPECTED_COLLECTOR_VERSION then
     status = "healthy"
   elseif source == "system-cache" and version ~= EXPECTED_COLLECTOR_VERSION then
     status = "upgrade-required"
@@ -683,16 +692,25 @@ local function systemCollectorState(raw, source)
     status = "not-installed"
   end
   return {
+    enabled = enabled,
     installed = installed,
     status = status,
     version = version ~= "" and version or nil,
     expected_version = EXPECTED_COLLECTOR_VERSION,
-    helper_available = noctalia.fileExists("/usr/local/libexec/noctalia-smart-monitor/smart-action.sh"),
+    helper_installed = noctalia.fileExists("/usr/local/libexec/noctalia-smart-monitor/smart-action.sh"),
+    helper_available = enabled
+      and noctalia.fileExists("/usr/local/libexec/noctalia-smart-monitor/smart-action.sh"),
     authorization_available = noctalia.commandExists("pkexec"),
     install_command = pluginDirectory ~= nil and "sudo "
       .. shellQuote(pluginDirectory .. "/packaging/install-system-collector.sh") or nil,
     uninstall_command = pluginDirectory ~= nil and "sudo "
       .. shellQuote(pluginDirectory .. "/packaging/uninstall-system-collector.sh") or nil,
+    enable_command = installed and noctalia.commandExists("systemctl")
+      and "sudo systemctl enable --now noctalia-smart-monitor.timer"
+        .. " && sudo systemctl start noctalia-smart-monitor.service" or nil,
+    disable_command = installed and noctalia.commandExists("systemctl")
+      and "sudo systemctl disable --now noctalia-smart-monitor.timer"
+        .. " && sudo systemctl stop noctalia-smart-monitor.service" or nil,
   }
 end
 
@@ -957,6 +975,19 @@ local function publish(snapshot, dependencies)
   snapshot.collecting = false
   snapshot.collector_error = nil
   snapshot.dependencies = dependencies
+  local collector = snapshot.system_collector
+  if type(collector) == "table" and collector.enabled == true
+      and collector.status == "upgrade-required" then
+    local signature = tostring(collector.version or "unknown")
+      .. "->" .. tostring(collector.expected_version or "unknown")
+    if signature ~= notifiedCollectorUpgradeSignature then
+      notifiedCollectorUpgradeSignature = signature
+      noctalia.notify(noctalia.tr("collector.update_title"), noctalia.tr("collector.update_body", {
+        current = tostring(collector.version or noctalia.tr("common.unknown")),
+        expected = tostring(collector.expected_version or noctalia.tr("common.unknown")),
+      }))
+    end
+  end
   noctalia.state.set("collector_snapshot", snapshot)
 end
 
@@ -970,22 +1001,24 @@ local function collect()
     return
   end
 
-  local rawCache = freshJson(RAW_CACHE)
-  if type(rawCache) == "table" and tonumber(rawCache.schema) == 2 then
-    local snapshot, normalizeError = normalizeRaw(rawCache, "system-cache")
-    if snapshot ~= nil then
-      publish(snapshot, dependencies)
+  if systemCollectorEnabled() then
+    local rawCache = freshJson(RAW_CACHE)
+    if type(rawCache) == "table" and tonumber(rawCache.schema) == 2 then
+      local snapshot, normalizeError = normalizeRaw(rawCache, "system-cache")
+      if snapshot ~= nil then
+        publish(snapshot, dependencies)
+        return
+      end
+      noctalia.log("Raw SMART cache rejected: " .. tostring(normalizeError))
+    end
+
+    local legacy = freshJson(LEGACY_CACHE)
+    if type(legacy) == "table" and tonumber(legacy.schema) == 1 then
+      legacy.source = "legacy-system-cache"
+      legacy.system_collector = systemCollectorState(nil, "legacy-system-cache")
+      publish(legacy, dependencies)
       return
     end
-    noctalia.log("Raw SMART cache rejected: " .. tostring(normalizeError))
-  end
-
-  local legacy = freshJson(LEGACY_CACHE)
-  if type(legacy) == "table" and tonumber(legacy.schema) == 1 then
-    legacy.source = "legacy-system-cache"
-    legacy.system_collector = systemCollectorState(nil, "legacy-system-cache")
-    publish(legacy, dependencies)
-    return
   end
 
   local pluginDir = noctalia.pluginDir()

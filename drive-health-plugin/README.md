@@ -50,8 +50,8 @@ Clicking the widget toggles the `gustav0ar/drive-health-plugin:drives` panel.
 - Capability-based dependency checks with a persistent setup warning,
   distro-aware install command, copy action, and user-confirmed terminal
   installer
-- Guided install, upgrade, status, and two-step removal controls for the
-  optional system collector
+- Opt-in Full SMART mode with live status, guided install/upgrade, reversible
+  service controls, and two-step collector removal
 - Python-free runtime: one POSIX raw collector plus Luau normalization and
   alert services
 - English and Brazilian Portuguese translations
@@ -159,6 +159,20 @@ Linux normally restricts raw SMART ioctls to root. Without extra privileges,
 the plugin still shows drive inventory, mounted space, and temperatures exposed
 through sysfs, but endurance and full health fields may be unavailable.
 
+Drive Health therefore has two explicit operating modes:
+
+| Mode | What it provides |
+| --- | --- |
+| **Basic** (default) | Drive discovery, mounted folders, storage use, and temperatures exposed by Linux. No privileged service is used. |
+| **Full SMART** (optional) | Reliable SMART health, SSD endurance, detailed sensors, error/integrity counters, and background self-test progress. |
+
+Choose the mode with **Full SMART collector (optional)** under
+**Settings → Plugins → Drive Health**. Turning it off immediately makes the
+plugin ignore the privileged cache and continue in Basic mode. It does not
+silently delete system files. The gear in the Drive Health panel opens a compact
+status view that explains both modes and offers service start/pause, upgrade,
+and removal actions when relevant.
+
 For full data, the project includes a systemd timer that runs a fixed,
 root-owned copy of the raw collector and atomically writes JSON to
 `/run/noctalia-smart-monitor/raw.json`. Luau performs normalization inside
@@ -174,6 +188,18 @@ older plugin version. Its install/upgrade button opens the command in a terminal
 and requires the user's normal `sudo` approval. The service is hardened with a
 read-only system/home view, no network access, no new privileges, restricted
 namespaces, and write access limited to its runtime cache directory.
+
+To pause the installed background service without removing its files:
+
+```sh
+sudo systemctl disable --now noctalia-smart-monitor.timer
+sudo systemctl stop noctalia-smart-monitor.service
+```
+
+The panel can open this exact command for review. Re-enabling uses the matching
+`systemctl enable --now` action and performs an immediate refresh. These service
+actions are separate from the Full SMART setting so declarative settings never
+trigger an unexpected administrator prompt.
 
 To remove only the optional system collector while leaving the plugin and its
 settings intact:
@@ -216,9 +242,11 @@ atomically and are keyed by stable serial number when available.
 
 ## Settings
 
-Noctalia's plugin settings control the refresh interval, global temperature and
-SSD-life thresholds, desktop and recovery alerts, HDD visibility and alerting,
-missing-drive grace scans, hotspot selection, and history sampling/retention.
+Noctalia's plugin settings first expose the optional Full SMART collector toggle
+with a summary of what it unlocks. They also control the refresh interval,
+global temperature and SSD-life thresholds, desktop and recovery alerts, HDD
+visibility and alerting, missing-drive grace scans, hotspot selection, and
+history sampling/retention.
 Per-drive customization adds aliases, ordering, visibility, thresholds, and
 health or disappearance alert toggles without changing global defaults.
 
@@ -230,9 +258,14 @@ Update the Git source and hot-reload the enabled plugin with:
 noctalia msg plugins update drive-health
 ```
 
-Version 1.0.0 expects the 1.0.0 optional system collector. If the panel reports
-that an older collector needs an upgrade, use its explicit **Upgrade** action or
-rerun `sudo ./packaging/install-system-collector.sh` from this directory.
+Plugin 1.1.0 expects the 1.0.0 optional system collector. When Full SMART is
+enabled, every refresh verifies this version. After a plugin update changes the
+required collector version, Drive Health shows a one-time update notification
+and a persistent **Upgrade collector** action until the root-owned copy matches.
+The upgrade is never silent: use that action or rerun
+`sudo ./packaging/install-system-collector.sh` from this directory and approve
+the command explicitly. Users in Basic mode receive no collector install or
+upgrade prompt.
 
 Noctalia keys settings, history, and other plugin data by plugin ID. A
 pre-release installation that used a different ID is treated as a separate

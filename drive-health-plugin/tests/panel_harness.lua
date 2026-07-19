@@ -8,6 +8,13 @@ local asyncCallback = nil
 local notifications = {}
 local errors = {}
 local writesSucceed = true
+local configValues = {
+  warning_temperature = 65,
+  critical_temperature = 80,
+  show_hdd = true,
+  use_hotspot_temperature = true,
+  system_collector_enabled = true,
+}
 
 local function translate(key, substitutions)
   if key == "metrics.mounted_at" then
@@ -38,9 +45,7 @@ panel = {
 local watchers = {}
 noctalia = {
   getConfig = function(key)
-    local values = { warning_temperature = 65, critical_temperature = 80,
-      show_hdd = true, use_hotspot_temperature = true }
-    return values[key]
+    return configValues[key]
   end,
   tr = translate,
   pluginDataDir = function() return "/mock/plugin-data" end,
@@ -68,8 +73,12 @@ state.snapshot = {
   generated_at_local = "12:00:00",
   collector_error = nil,
   dependencies = { ready = true },
-  system_collector = { installed = true, status = "healthy", version = "1.0.0",
-    expected_version = "1.0.0", helper_available = true, authorization_available = true },
+  system_collector = { enabled = true, installed = true, status = "healthy", version = "1.0.0",
+    expected_version = "1.0.0", helper_available = true, authorization_available = true,
+    enable_command = "sudo systemctl enable --now noctalia-smart-monitor.timer",
+    disable_command = "sudo systemctl disable --now noctalia-smart-monitor.timer",
+    install_command = "sudo '/mock/plugin/packaging/install-system-collector.sh'",
+    uninstall_command = "sudo '/mock/plugin/packaging/uninstall-system-collector.sh'" },
   summary = { disk_count = 2, ssd_count = 1, hdd_count = 1, smart_available_count = 2,
     ssd_smart_available_count = 1, hottest_drive_temperature_c = 70,
     hottest_ssd_temperature_c = 70, worst_ssd_remaining_life_percent = 95 },
@@ -157,12 +166,46 @@ assert(findNodeWithProp(rendered, "glyph", "name", "server-2") ~= nil,
   "panel header did not use the physical-storage icon")
 assert(containsText(rendered, "metrics.mounted_at /  ·  /home/example"),
   "mounted drive card omitted its mounted folders")
+onToggleCollectorSettingsClicked()
+assert(containsText(rendered, "collector.settings_title")
+  and containsText(rendered, "collector.basic_features")
+  and containsText(rendered, "collector.full_features"),
+  "collector settings did not explain Basic and Full SMART capabilities")
+onPauseCollectorClicked()
+assert(terminalCommand == "sudo systemctl disable --now noctalia-smart-monitor.timer",
+  "collector settings did not expose the explicit service pause command")
+terminalCommand = nil
+onOpenPluginSettingsClicked()
+assert(asyncCommand == "noctalia msg settings-toggle",
+  "collector settings did not open Noctalia's overall settings")
+onToggleCollectorSettingsClicked()
 state.snapshot.system_collector.status = "upgrade-required"
 state.snapshot.system_collector.version = "0.6.0"
 watchers.snapshot(state.snapshot)
 assert(containsText(rendered, "collector.title"), "actionable collector state did not render")
+onToggleCollectorSettingsClicked()
+assert(not containsText(rendered, "collector.title") and containsText(rendered, "collector.settings_title"),
+  "collector settings duplicated the actionable lifecycle card")
+onToggleCollectorSettingsClicked()
 state.snapshot.system_collector.status = "healthy"
 state.snapshot.system_collector.version = "1.0.0"
+watchers.snapshot(state.snapshot)
+configValues.system_collector_enabled = false
+state.snapshot.system_collector.enabled = false
+state.snapshot.system_collector.status = "disabled"
+state.snapshot.system_collector.helper_available = false
+watchers.snapshot(state.snapshot)
+assert(not containsText(rendered, "collector.title"),
+  "disabled optional collector created a persistent main-panel warning")
+onToggleCollectorSettingsClicked()
+assert(containsText(rendered, "collector.status_disabled")
+  and containsText(rendered, "collector.open_settings"),
+  "disabled collector status or re-enable route was missing from collector settings")
+onToggleCollectorSettingsClicked()
+configValues.system_collector_enabled = true
+state.snapshot.system_collector.enabled = true
+state.snapshot.system_collector.status = "healthy"
+state.snapshot.system_collector.helper_available = true
 watchers.snapshot(state.snapshot)
 onDrive1Clicked()
 assert(containsText(rendered, "self_test.title"), "expanded self-test card did not render")

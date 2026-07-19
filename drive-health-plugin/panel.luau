@@ -12,6 +12,7 @@ local dismissRequestNonce = 0
 local pendingSelfTest = nil
 local selfTestLaunch = nil
 local confirmUninstall = false
+local showCollectorSettings = false
 local hiddenSelection = 1
 local aliasDraft = ""
 local warningDraft = ""
@@ -300,18 +301,21 @@ local function dependencyCard(dependencies)
 end
 
 local function collectorCard(collector)
-  if type(collector) ~= "table" then
+  if showCollectorSettings or type(collector) ~= "table" then
     return nil
   end
   local status = tostring(collector.status or "not-installed")
-  if status == "healthy" then
+  if status == "healthy" or status == "disabled" then
     return nil
   end
   local color = status == "stale" and "error" or "secondary"
   local actions = {}
+  local actionKey = status == "stale" and "collector.start"
+    or (collector.installed and "collector.upgrade" or "collector.install")
+  local actionHandler = status == "stale" and "onStartCollectorClicked"
+    or "onInstallCollectorClicked"
   table.insert(actions, ui.button({
-    text = noctalia.tr(collector.installed and "collector.upgrade" or "collector.install"),
-    variant = "primary", controlSize = "sm", onClick = "onInstallCollectorClicked",
+    text = noctalia.tr(actionKey), variant = "primary", controlSize = "sm", onClick = actionHandler,
   }))
   table.insert(actions, ui.button({
     text = noctalia.tr("collector.copy_install"), variant = "outline", controlSize = "sm",
@@ -351,6 +355,86 @@ local function collectorCard(collector)
   return ui.column({
     gap = 8, padding = 10, radius = 10, fill = color .. "/0.08",
     border = color .. "/0.24", borderWidth = 1,
+  }, children)
+end
+
+local function collectorSettingsCard(collector)
+  if not showCollectorSettings or type(collector) ~= "table" then
+    return nil
+  end
+  local status = tostring(collector.status or "not-installed")
+  local enabled = collector.enabled == true
+  local color = status == "healthy" and "primary"
+    or (status == "disabled" and "on_surface_variant"
+      or (status == "stale" and "error" or "secondary"))
+  local actions = {
+    ui.button({ text = noctalia.tr("collector.open_settings"), glyph = "settings", variant = "outline",
+      controlSize = "sm", onClick = "onOpenPluginSettingsClicked" }),
+  }
+
+  if enabled and status == "not-installed" then
+    table.insert(actions, 1, ui.button({ text = noctalia.tr("collector.install"), variant = "primary",
+      controlSize = "sm", onClick = "onInstallCollectorClicked" }))
+  elseif enabled and status == "upgrade-required" then
+    table.insert(actions, 1, ui.button({ text = noctalia.tr("collector.upgrade"), variant = "primary",
+      controlSize = "sm", onClick = "onInstallCollectorClicked" }))
+  elseif enabled and status == "stale" and collector.enable_command ~= nil then
+    table.insert(actions, 1, ui.button({ text = noctalia.tr("collector.start"), variant = "primary",
+      controlSize = "sm", onClick = "onStartCollectorClicked" }))
+  elseif status == "healthy" and collector.disable_command ~= nil then
+    table.insert(actions, 1, ui.button({ text = noctalia.tr("collector.pause"), variant = "ghost",
+      controlSize = "sm", onClick = "onPauseCollectorClicked" }))
+  elseif not enabled and collector.installed and collector.disable_command ~= nil then
+    table.insert(actions, 1, ui.button({ text = noctalia.tr("collector.stop_service"), variant = "ghost",
+      controlSize = "sm", onClick = "onPauseCollectorClicked" }))
+  end
+
+  local children = {
+    ui.row({ gap = 8, align = "center" }, {
+      ui.glyph({ name = "shield-cog", size = 17, color = color }),
+      ui.column({ gap = 1, flexGrow = 1 }, {
+        ui.label({ text = noctalia.tr("collector.settings_title"), fontWeight = "bold", color = color }),
+        ui.label({
+          text = noctalia.tr("collector.status_" .. status:gsub("%-", "_"), {
+            version = tostring(collector.version or collector.expected_version or ""),
+          }),
+          fontSize = 11, color = "on_surface_variant", maxLines = 2,
+        }),
+      }),
+    }),
+    ui.row({ gap = 8, padding = 8, radius = 8, fill = "surface/0.42", align = "center" }, {
+      ui.glyph({ name = "server", size = 14, color = "on_surface_variant" }),
+      ui.column({ gap = 2, flexGrow = 1 }, {
+        ui.label({ text = noctalia.tr("collector.basic_title"), fontWeight = "bold", fontSize = 11 }),
+        ui.label({ text = noctalia.tr("collector.basic_features"), fontSize = 10,
+          color = "on_surface_variant", maxLines = 2 }),
+      }),
+    }),
+    ui.row({ gap = 8, padding = 8, radius = 8, fill = "primary/0.10", align = "center" }, {
+      ui.glyph({ name = "shield-check", size = 14, color = "primary" }),
+      ui.column({ gap = 2, flexGrow = 1 }, {
+        ui.label({ text = noctalia.tr("collector.full_title"), fontWeight = "bold", fontSize = 11,
+          color = "primary" }),
+        ui.label({ text = noctalia.tr("collector.full_features"), fontSize = 10,
+          color = "on_surface_variant", maxLines = 3 }),
+      }),
+    }),
+    ui.label({ text = noctalia.tr("collector.settings_hint"), fontSize = 10,
+      color = "on_surface_variant", maxLines = 2 }),
+    ui.row({ gap = 7, align = "center" }, actions),
+  }
+  if confirmUninstall then
+    table.insert(children, ui.label({ text = noctalia.tr("collector.remove_confirm"),
+      fontSize = 10, color = "error" }))
+  end
+  if collector.installed then
+    table.insert(children, ui.button({ text = noctalia.tr("collector.remove"),
+      variant = confirmUninstall and "destructive" or "ghost", controlSize = "sm",
+      onClick = "onUninstallCollectorClicked" }))
+  end
+  return ui.column({
+    gap = 8, padding = 10, radius = 10, fill = "surface_variant/0.24",
+    border = "outline/0.38", borderWidth = 1,
   }, children)
 end
 
@@ -913,6 +997,10 @@ local function render()
     if collectorStatus ~= nil then
       table.insert(body, collectorStatus)
     end
+    local collectorSettings = collectorSettingsCard(snapshot.system_collector)
+    if collectorSettings ~= nil then
+      table.insert(body, collectorSettings)
+    end
 
     table.insert(body, ui.row({ gap = 10, align = "stretch" }, {
       ui.column({ gap = 2, padding = 10, radius = 10, fill = "primary/0.12", flexGrow = 1 }, {
@@ -969,6 +1057,8 @@ local function render()
         ui.label({ text = noctalia.tr("panel.title"), fontSize = 17, fontWeight = "bold", color = "on_surface" }),
         ui.label({ text = headerStatus, fontSize = 11, color = "on_surface_variant" }),
       }),
+      ui.button({ glyph = "settings", variant = showCollectorSettings and "primary" or "ghost",
+        tooltip = noctalia.tr("collector.settings_title"), onClick = "onToggleCollectorSettingsClicked" }),
       ui.button({ glyph = "refresh", variant = "ghost", onClick = "onRefreshClicked" }),
       ui.button({ glyph = "x", variant = "ghost", onClick = "onCloseClicked" }),
     }),
@@ -1348,8 +1438,38 @@ function onInstallCollectorClicked()
   end
 end
 
+function onStartCollectorClicked()
+  local command = snapshot and snapshot.system_collector and snapshot.system_collector.enable_command or nil
+  if command == nil or command == "" then return end
+  if noctalia.runInTerminal(command) then
+    noctalia.notify(noctalia.tr("collector.title"), noctalia.tr("collector.start_terminal_opened"))
+  end
+end
+
+function onPauseCollectorClicked()
+  local command = snapshot and snapshot.system_collector and snapshot.system_collector.disable_command or nil
+  if command == nil or command == "" then return end
+  if noctalia.runInTerminal(command) then
+    noctalia.notify(noctalia.tr("collector.title"), noctalia.tr("collector.pause_terminal_opened"))
+  end
+end
+
+function onToggleCollectorSettingsClicked()
+  showCollectorSettings = not showCollectorSettings
+  confirmUninstall = false
+  render()
+end
+
+function onOpenPluginSettingsClicked()
+  panel.close()
+  noctalia.runAsync("noctalia msg settings-toggle", function(_result) end, 5000)
+  noctalia.notify(noctalia.tr("collector.settings_title"), noctalia.tr("collector.settings_opened"))
+end
+
 function onCopyCollectorCommandClicked()
-  local command = snapshot and snapshot.system_collector and snapshot.system_collector.install_command or nil
+  local collector = snapshot and snapshot.system_collector or nil
+  local command = collector and collector.status == "stale" and collector.enable_command
+    or (collector and collector.install_command or nil)
   if command ~= nil and noctalia.copyToClipboard(command, "text/plain") then
     noctalia.notify(noctalia.tr("collector.title"), noctalia.tr("dependencies.copied"))
   end
@@ -1378,6 +1498,7 @@ function onClose()
   opened = false
   pendingSelfTest = nil
   confirmUninstall = false
+  showCollectorSettings = false
 end
 
 function onRefreshClicked()

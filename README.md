@@ -8,6 +8,8 @@ expandable per-drive panel.
 The runtime is local-only and makes no network requests. Drive discovery uses
 `lsblk`; full SMART data uses `smartctl`. An optional hardened system collector
 can provide read-only SMART access without granting Noctalia root privileges.
+It is disabled by default for new users; plugin settings explain the additional
+health, endurance, integrity, sensor, and self-test data before the user opts in.
 
 ## Install from this Git source
 
@@ -55,6 +57,9 @@ validation.
   require explicit user action and normal system authorization.
 - The optional collector is read-only, network-isolated, and writes only its
   runtime cache under `/run`.
+- If Full SMART is enabled, plugin updates detect an outdated collector and ask
+  the user to approve its separate update; privileged files are never replaced
+  silently.
 - Exported diagnostic snapshots can include drive model, serial number, and
   mount paths. Review them before sharing.
 

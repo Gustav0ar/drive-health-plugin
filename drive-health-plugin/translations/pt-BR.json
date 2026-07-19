@@ -4,7 +4,8 @@
     "duration_hours": "{value} h",
     "duration_years": "{value} a",
     "never": "nunca",
-    "not_available": "N/D"
+    "not_available": "N/D",
+    "unknown": "desconhecida"
   },
   "widget": {
     "loading": "Carregando a saúde das unidades…",
@@ -92,17 +93,33 @@
   },
   "collector": {
     "title": "Coletor do sistema",
+    "settings_title": "Configurações do coletor",
+    "status_disabled": "O modo básico está ativo; o coletor opcional do sistema não está sendo usado.",
     "status_healthy": "O coletor {version} está instalado e atualizando os dados SMART completos.",
     "status_not_installed": "Instale o coletor somente leitura para liberar os dados SMART completos.",
     "status_stale": "O coletor está instalado, mas o cache está desatualizado ou indisponível.",
     "status_upgrade_required": "O coletor {version} está desatualizado; atualize para a versão incluída.",
     "install": "Instalar coletor",
     "upgrade": "Atualizar coletor",
+    "start": "Iniciar coletor",
+    "pause": "Pausar serviço",
+    "stop_service": "Parar serviço em segundo plano",
+    "open_settings": "Configurações do plugin",
     "copy_install": "Copiar comando",
     "remove": "Remover coletor",
     "remove_confirm": "Clique em Remover coletor novamente para abrir o comando privilegiado de remoção.",
     "terminal_opened": "Um terminal foi aberto. Revise o comando e aprove o sudo para instalar ou atualizar.",
-    "uninstall_terminal_opened": "Um terminal foi aberto. Revise o comando de remoção e aprove o sudo para continuar."
+    "start_terminal_opened": "Um terminal foi aberto. Revise o comando e aprove o sudo para ativar e atualizar o coletor.",
+    "pause_terminal_opened": "Um terminal foi aberto. Revise o comando e aprove o sudo para parar o temporizador do coletor.",
+    "uninstall_terminal_opened": "Um terminal foi aberto. Revise o comando de remoção e aprove o sudo para continuar.",
+    "basic_title": "Monitoramento básico — sem serviço elevado",
+    "basic_features": "Descoberta de unidades, pastas montadas, uso do armazenamento e temperaturas expostas pelo Linux.",
+    "full_title": "SMART completo — opcional",
+    "full_features": "Saúde, vida útil, contadores de erro, detalhes dos sensores e progresso dos autotestes com maior confiabilidade.",
+    "settings_hint": "Ative ou desative o SMART completo em Configurações → Plugins → Drive Health. Ações privilegiadas sempre abrem um terminal para revisão.",
+    "settings_opened": "Abra Plugins e selecione a engrenagem do Drive Health.",
+    "update_title": "Atualização do coletor do Drive Health disponível",
+    "update_body": "O SMART completo está ativo. Atualize o coletor {current} para {expected} pelo painel do Drive Health para manter todos os recursos funcionando."
   },
   "history": {
     "title": "Tendências de saúde das unidades",
@@ -192,6 +209,10 @@
     "test_body": "As notificações estão funcionando. Isto é apenas um teste; nenhum problema foi criado."
   },
   "settings": {
+    "system_collector_enabled": {
+      "label": "Coletor SMART completo (opcional)",
+      "description": "Usa o coletor de sistema somente leitura, autorizado separadamente, para saúde, vida útil, contadores de erro, detalhes dos sensores e progresso dos autotestes com maior confiabilidade. Desativado mantém o monitoramento básico de unidades, montagens, armazenamento e temperaturas disponíveis."
+    },
     "refresh_seconds": {
       "label": "Intervalo de atualização",
       "description": "Segundos entre as atualizações dos dados SMART."

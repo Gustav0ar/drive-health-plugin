@@ -1,6 +1,6 @@
 id = "gustav0ar/drive-health-plugin"
 name = "Drive Health"
-version = "1.0.2"
+version = "1.1.0"
 plugin_api = 3
 author = "Drive Health contributors"
 license = "MIT"
@@ -9,6 +9,13 @@ dependencies = ["smartmontools", "util-linux"]
 tags = ["system", "storage", "smart", "ssd", "hdd", "monitoring"]
 icon = "server-2"
 description = "SMART health, temperature, integrity, endurance, and storage monitoring for SSDs and hard drives."
+
+[[setting]]
+key = "system_collector_enabled"
+type = "bool"
+label_key = "settings.system_collector_enabled.label"
+description_key = "settings.system_collector_enabled.description"
+default = false
 
 [[setting]]
 key = "refresh_seconds"
