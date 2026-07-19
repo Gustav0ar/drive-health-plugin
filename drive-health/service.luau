@@ -152,7 +152,7 @@ local function driveIssue(drive, kind, severity, message, value, monotonic)
   }
 end
 
-local function evaluateDrive(drive, previousActive)
+local function evaluateDrive(drive, previousActive, fullSmartExpected)
   local issues = {}
   local name = driveName(drive)
   local warningTemperature = number(drive.warning_temperature, number(noctalia.getConfig("warning_temperature"), 65))
@@ -160,7 +160,7 @@ local function evaluateDrive(drive, previousActive)
     number(drive.critical_temperature, number(noctalia.getConfig("critical_temperature"), 80)))
   local lifeWarning = number(drive.life_warning_percent, number(noctalia.getConfig("life_warning_percent"), 20))
 
-  if drive.smart_available == false then
+  if fullSmartExpected and drive.smart_available == false and drive.smart_sleeping ~= true then
     table.insert(issues, driveIssue(
       drive, "smart-unavailable", "warning",
       noctalia.tr("alerts.smart_unavailable", { drive = name }), 1, false
@@ -338,6 +338,7 @@ local function processSnapshot(snapshot)
   local alertHdd = boolConfig("alert_hdd", true)
   local missingAlerts = boolConfig("drive_missing_alerts", true)
   local missingGrace = math.max(1, math.floor(number(noctalia.getConfig("missing_grace_scans"), 3)))
+  local fullSmartExpected = noctalia.getConfig("system_collector_enabled") == true
   local inventory = copyStateValue(alertState.inventory or {})
   local seen = {}
 
@@ -377,7 +378,7 @@ local function processSnapshot(snapshot)
       end
       if eligibleKind and drive.alerts_enabled ~= false then
         checkDiagnosticCounters(drive)
-        for _, issue in ipairs(evaluateDrive(drive, previousActive)) do
+        for _, issue in ipairs(evaluateDrive(drive, previousActive, fullSmartExpected)) do
           active[issue.id] = issue
           table.insert(issues, issue)
         end

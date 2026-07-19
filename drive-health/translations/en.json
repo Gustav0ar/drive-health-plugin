@@ -40,8 +40,8 @@
   "dependencies": {
     "title": "Required dependencies are missing",
     "missing": "Missing commands: {missing}",
-    "alert_title": "SMART Monitor setup required",
-    "alert_body": "Install the missing dependencies to enable complete monitoring: {missing}. Open the SMART Monitor panel to review the command.",
+    "alert_title": "Drive Health setup required",
+    "alert_body": "Install the missing dependencies to enable complete monitoring: {missing}. Open the Drive Health panel to review the command.",
     "collection_blocked": "Drive collection is paused because required commands are missing: {missing}",
     "command": "Suggested {manager} command",
     "package_manager": "package manager",
@@ -86,6 +86,7 @@
   },
   "smart": {
     "access_limited": "Temperature and storage are available; health and full SMART details require the read-only system collector.",
+    "sleeping": "Drive is sleeping; SMART checks were skipped to avoid spinning it up.",
     "partial_title": "Limited SMART access",
     "partial_body": "Full SMART details available for {available} of {total} drives.",
     "partial_details": "Core health is available, but at least one optional SMART section could not be read."
@@ -103,7 +104,7 @@
     "start": "Start collector",
     "pause": "Pause service",
     "stop_service": "Stop background service",
-    "open_settings": "Plugin settings",
+    "open_settings": "Open Plugins page",
     "copy_install": "Copy command",
     "remove": "Remove collector",
     "remove_confirm": "Click Remove collector again to open the explicit privileged uninstall command.",
@@ -116,7 +117,7 @@
     "full_title": "Full SMART — optional",
     "full_features": "Reliable health, endurance, error counters, sensor details, and background self-test progress.",
     "settings_hint": "Enable or disable Full SMART from Settings → Plugins → Drive Health. Privileged actions always open a terminal for review.",
-    "settings_opened": "Opened Plugins. Select the gear on Drive Health.",
+    "settings_opened": "Opened the Plugins page. Select the gear on Drive Health to change its settings.",
     "update_title": "Drive Health collector update available",
     "update_body": "Full SMART is enabled. Update collector {current} to {expected} from the Drive Health panel to keep all features working."
   },
@@ -129,6 +130,9 @@
   "self_test": {
     "title": "SMART self-test",
     "unavailable": "Self-test information unavailable",
+    "none_recorded": "No self-test recorded",
+    "in_progress": "Self-test in progress",
+    "log_unavailable": "Self-test log unavailable",
     "short": "Short test",
     "long": "Extended test",
     "progress": "Test progress",
@@ -167,7 +171,7 @@
   "alerts": {
     "unknown_drive": "Unknown drive",
     "drive_title": "SMART alert: {drive}",
-    "collector_title": "SMART Monitor collector problem",
+    "collector_title": "Drive Health collector problem",
     "collector_error": "Drive monitoring could not refresh: {error}",
     "active_title": "{count} active drive alert(s)",
     "dismiss": "Dismiss alert",
@@ -198,17 +202,17 @@
     "drive_missing": "{drive} has been missing for {count} consecutive scans.",
     "recovered_title": "SMART issue recovered: {drive}",
     "recovered_body": "No longer active: {issue}",
-    "test_title": "SMART Monitor alert test",
+    "test_title": "Drive Health alert test",
     "test_body": "Notifications are working. This is only a test; no drive issue was created."
   },
   "settings": {
     "system_collector_enabled": {
       "label": "Full SMART collector (optional)",
-      "description": "Use the separately authorized read-only system collector for reliable health, endurance, error counters, sensor details, and self-test progress. Off keeps basic drive, mount, storage, and available temperature monitoring."
+      "description": "Use the separately authorized read-only system collector for reliable health, endurance, error counters, sensor details, and self-test progress. Turning this off ignores its cache but does not stop an installed timer; stop it from the Drive Health collector controls."
     },
     "refresh_seconds": {
       "label": "Refresh interval",
-      "description": "Seconds between SMART data refreshes."
+      "description": "Seconds between plugin refreshes. The optional root collector refreshes its cache every 30 seconds independently."
     },
     "warning_temperature": {
       "label": "Warning temperature",

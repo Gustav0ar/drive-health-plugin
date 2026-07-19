@@ -19,6 +19,8 @@ local configValues = {
 local function translate(key, substitutions)
   if key == "metrics.mounted_at" then
     return key .. " " .. tostring(substitutions and substitutions.paths or "")
+  elseif key == "metrics.serial" then
+    return key .. " " .. tostring(substitutions and substitutions.value or "")
   end
   local value = key
   for name, replacement in pairs(substitutions or {}) do
@@ -75,8 +77,8 @@ state.snapshot = {
   dependencies = { ready = true },
   system_collector = { enabled = true, installed = true, status = "healthy", version = "1.0.0",
     expected_version = "1.0.0", helper_available = true, authorization_available = true,
-    enable_command = "sudo systemctl enable --now noctalia-smart-monitor.timer",
-    disable_command = "sudo systemctl disable --now noctalia-smart-monitor.timer",
+    enable_command = "sudo systemctl enable --now noctalia-gustav0ar-drive-health.timer",
+    disable_command = "sudo systemctl disable --now noctalia-gustav0ar-drive-health.timer",
     install_command = "sudo '/mock/plugin/packaging/install-system-collector.sh'",
     uninstall_command = "sudo '/mock/plugin/packaging/uninstall-system-collector.sh'" },
   summary = { disk_count = 2, ssd_count = 1, hdd_count = 1, smart_available_count = 2,
@@ -86,7 +88,7 @@ state.snapshot = {
     worst_ssd_life_drive_name = "Fixture SSD" },
   issues = {},
   disks = { {
-    id = "SERIAL1", model = "Fixture SSD", display_name = "Fixture SSD", device = "/dev/nvme0n1",
+    id = "SERIAL1", serial = "SERIAL1", model = "Fixture SSD", display_name = "Fixture SSD", device = "/dev/nvme0n1",
     smart_device = "/dev/nvme0", kind = "ssd", transport = "nvme", capacity_bytes = 2000000000,
     health = "passed", smart_available = true, smart_completeness = "full",
     temperature_c = 45, hotspot_temperature_c = 70, temperature_sensors_c = { 70, 45 },
@@ -170,15 +172,15 @@ assert(findNodeWithProp(rendered, "glyph", "name", "server-2") ~= nil,
   "panel header did not use the physical-storage icon")
 assert(countText(rendered, "Fixture SSD") >= 3,
   "summary cards did not identify the hottest and lowest-life drives")
-assert(containsText(rendered, "metrics.mounted_at /  ·  /home/example"),
-  "mounted drive card omitted its mounted folders")
+assert(not containsText(rendered, "metrics.mounted_at /  ·  /home/example"),
+  "collapsed drive card exposed mount paths")
 onToggleCollectorSettingsClicked()
 assert(containsText(rendered, "collector.settings_title")
   and containsText(rendered, "collector.basic_features")
   and containsText(rendered, "collector.full_features"),
   "collector settings did not explain Basic and Full SMART capabilities")
 onPauseCollectorClicked()
-assert(terminalCommand == "sudo systemctl disable --now noctalia-smart-monitor.timer",
+assert(terminalCommand == "sudo systemctl disable --now noctalia-gustav0ar-drive-health.timer",
   "collector settings did not expose the explicit service pause command")
 terminalCommand = nil
 onOpenPluginSettingsClicked()
@@ -215,6 +217,10 @@ state.snapshot.system_collector.helper_available = true
 watchers.snapshot(state.snapshot)
 onDrive1Clicked()
 assert(containsText(rendered, "self_test.title"), "expanded self-test card did not render")
+assert(containsText(rendered, "metrics.mounted_at /  ·  /home/example"),
+  "expanded drive card omitted its mounted folders")
+assert(containsText(rendered, "metrics.serial SERIAL1"),
+  "expanded drive card omitted its serial")
 assert(containsText(rendered, "self_test.progress"), "running self-test progress did not render")
 state.snapshot.disks[1].smart_completeness = "partial"
 watchers.snapshot(state.snapshot)
@@ -240,7 +246,7 @@ onStartShortSelfTestClicked()
 assert(containsText(rendered, "self_test.confirm_action"), "self-test confirmation did not render")
 assert(terminalCommand == nil, "self-test started before confirmation")
 onConfirmSelfTestClicked()
-assert(asyncCommand:match("^pkexec /usr/local/libexec/noctalia%-smart%-monitor/smart%-action%.sh 'short' '/dev/nvme0'$"),
+assert(asyncCommand:match("^pkexec /usr/local/libexec/noctalia%-gustav0ar%-drive%-health/smart%-action%.sh 'short' '/dev/nvme0'$"),
   "self-test did not use Polkit, the fixed helper, and normalized controller")
 assert(terminalCommand == nil, "background self-test opened a terminal")
 assert(containsText(rendered, "self_test.authorizing"), "authorization state did not render")

@@ -8,7 +8,7 @@ set -eu
 LC_ALL=C
 export LC_ALL
 
-collector_version="1.0.0"
+collector_version="2.0.0"
 generated_at_epoch=$(date +%s)
 collection_id=""
 if [ -r /proc/sys/kernel/random/uuid ]; then
@@ -110,7 +110,7 @@ lsblk --nodeps --noheadings --paths --output PATH,TYPE,ROTA >"$devices_tmp"
   printf ']}\n'
 } >"$payload_tmp"
 
-chmod 0644 "$payload_tmp"
+chmod 0640 "$payload_tmp"
 if [ -n "$output" ]; then
   mv -f -- "$payload_tmp" "$output"
 else

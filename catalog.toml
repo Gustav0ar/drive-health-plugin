@@ -1,12 +1,12 @@
 [[plugin]]
-id = "gustav0ar/drive-health-plugin"
+id = "gustav0ar/drive-health"
 name = "Drive Health"
-version = "1.1.5"
+version = "1.2.0"
 plugin_api = 3
 author = "Drive Health contributors"
 license = "MIT"
 deprecated = false
 icon = "server-2"
 description = "SMART health, temperature, integrity, endurance, and storage monitoring for SSDs and hard drives."
-tags = ["system", "storage", "smart", "ssd", "hdd", "monitoring"]
-dependencies = ["smartmontools", "util-linux"]
+tags = ["bar", "panel", "service", "system", "hardware", "utility"]
+dependencies = ["lsblk", "smartctl", "sh", "date", "dirname", "mkdir", "mktemp", "rm", "sed", "cat", "chmod", "mv", "sudo", "env", "bash", "install", "systemctl", "pkexec", "id", "tr", "pacman", "apt-get", "dnf", "zypper", "apk", "xbps-install", "emerge"]

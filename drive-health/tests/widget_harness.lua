@@ -104,6 +104,6 @@ assert(findNodeWithProp(rendered, "glyph", "color", "error") ~= nil,
 assert(tooltip:find("Fixture failure", 1, true), "widget tooltip omitted active alert details")
 
 onClick()
-assert(toggledPanel == "gustav0ar/drive-health-plugin:drives", "widget click did not toggle its panel")
+assert(toggledPanel == "gustav0ar/drive-health:drives", "widget click did not toggle its panel")
 
 print("widget rendering tests passed")

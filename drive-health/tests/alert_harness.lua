@@ -8,6 +8,7 @@ local stateRenames = {}
 local successfulStateCommits = 0
 local failNextStateWrite = false
 local failNextStateRename = false
+local fullSmartEnabled = false
 
 local function translate(key, substitutions)
   local value = key
@@ -30,6 +31,7 @@ noctalia = {
       drive_missing_alerts = true,
       missing_grace_scans = 3,
       use_hotspot_temperature = true,
+      system_collector_enabled = fullSmartEnabled,
     }
     return values[key]
   end,
@@ -197,8 +199,18 @@ publish(snapshot(drive(45)))
 local unavailable = drive(45)
 unavailable.smart_available = false
 publish(snapshot(unavailable))
+assert(#state.snapshot.issues == 0,
+  "Basic mode produced a false SMART-unavailable warning")
+fullSmartEnabled = true
+publish(snapshot(unavailable))
 assert(#state.snapshot.issues == 1 and state.snapshot.issues[1].kind == "smart-unavailable",
-  "unavailable SMART warning was missed")
+  "Full SMART mode missed an unavailable-drive warning")
+local sleeping = drive(45)
+sleeping.smart_available = false
+sleeping.smart_sleeping = true
+publish(snapshot(sleeping))
+assert(#state.snapshot.issues == 0, "sleeping HDD produced a SMART-unavailable warning")
+fullSmartEnabled = false
 publish(snapshot(drive(45)))
 
 local selfTestFailure = drive(45)

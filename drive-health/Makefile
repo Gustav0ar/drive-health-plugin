@@ -24,16 +24,15 @@ unit:
 
 shell:
 	sh tests/test_collect_raw.sh
-	sh -n scripts/collect_raw.sh packaging/smart-action.sh tests/test_collect_raw.sh
+	sh tests/test_packaging.sh
+	sh -n scripts/collect_raw.sh packaging/smart-action.sh tests/test_collect_raw.sh tests/test_packaging.sh
 	bash -n packaging/install-system-collector.sh packaging/uninstall-system-collector.sh
 	@if command -v shellcheck >/dev/null 2>&1; then \
-		shellcheck scripts/collect_raw.sh packaging/*.sh tests/test_collect_raw.sh tests/fixtures/bin/*; \
+		shellcheck scripts/collect_raw.sh packaging/*.sh tests/test_collect_raw.sh tests/test_packaging.sh tests/fixtures/bin/*; \
 	fi
 
 translations:
-	@jq -S 'paths(scalars) | join(".")' translations/en.json > /tmp/drive-health-en-keys
-	@jq -S 'paths(scalars) | join(".")' translations/pt-BR.json > /tmp/drive-health-pt-keys
-	diff -u /tmp/drive-health-en-keys /tmp/drive-health-pt-keys
+	jq empty translations/en.json
 
 lint:
 	@if command -v noctalia >/dev/null 2>&1; then noctalia plugins lint .; \

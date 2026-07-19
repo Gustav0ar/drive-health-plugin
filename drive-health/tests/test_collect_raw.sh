@@ -7,7 +7,7 @@ fixture_bin="$project_dir/tests/fixtures/bin"
 payload=$(PATH="$fixture_bin:$PATH" sh "$project_dir/scripts/collect_raw.sh")
 printf '%s\n' "$payload" | jq -e '
   .schema == 2
-  and .collector_version == "1.0.0"
+  and .collector_version == "2.0.0"
   and (.collection_id | type == "string" and length > 0)
   and (.lsblk.blockdevices | length) == 2
   and (.smart | length) == 2
@@ -37,6 +37,11 @@ output=$(mktemp "${TMPDIR:-/tmp}/noctalia-smart-raw-test.XXXXXX")
 PATH="$fixture_bin:$PATH" sh "$project_dir/scripts/collect_raw.sh" --output "$output"
 jq -e '.schema == 2 and (.collection_id | type == "string" and length > 0)
   and (.smart | length) == 2' "$output" >/dev/null
+mode=$(stat -c '%a' "$output")
+if [ "$mode" != "640" ]; then
+  echo "raw collector output mode is $mode, expected 640" >&2
+  exit 1
+fi
 rm -f -- "$output"
 
 echo "raw collector tests passed"

@@ -3,11 +3,13 @@
 -- Collection and normalization service. Raw device access lives in the small
 -- POSIX script; this entry owns all platform-neutral SMART interpretation.
 
-local RAW_CACHE = "/run/noctalia-smart-monitor/raw.json"
+local SYSTEM_NAMESPACE = "noctalia-gustav0ar-drive-health"
+local SYSTEM_LIBEXEC = "/usr/local/libexec/" .. SYSTEM_NAMESPACE
+local RAW_CACHE = "/run/" .. SYSTEM_NAMESPACE .. "/raw.json"
 local LEGACY_CACHE = "/run/noctalia-smart-monitor/smart.json"
 local CACHE_MAX_AGE_SECONDS = 180
 local NVME_DATA_UNIT_BYTES = 512000
-local EXPECTED_COLLECTOR_VERSION = "1.0.0"
+local EXPECTED_COLLECTOR_VERSION = "2.0.0"
 local PREFERENCES_FILE = "drive-preferences.json"
 
 local collecting = false
@@ -272,13 +274,13 @@ local function remainingLife(attributes)
   if remaining ~= nil then
     local value = numeric(remaining.value)
     if value ~= nil then
-      return math.floor(clamp(value, 0, 100) * 10 + 0.5) / 10
+      return math.floor(clamp(value, 0, 100) * 10 + 0.5) / 10, true
     end
   end
   local used = rawAttribute(firstAttribute(attributes, {
     "Percentage_Used_Endurance_Indicator", "Percent_Lifetime_Used", "SSD_Life_Used",
   }))
-  return used ~= nil and math.floor(clamp(100 - used, 0, 100) * 10 + 0.5) / 10 or nil
+  return used ~= nil and math.floor(clamp(100 - used, 0, 100) * 10 + 0.5) / 10 or nil, used ~= nil
 end
 
 local function lbaBytes(attributes, names, blockSize)
@@ -291,11 +293,11 @@ local function ataDataBytes(attributes, direction, blockSize)
   local gibNames
   local chunkNames
   if direction == "written" then
-    lbaNames = { "Total_LBAs_Written", "Host_Writes" }
+    lbaNames = { "Total_LBAs_Written" }
     gibNames = { "Lifetime_Writes_GiB", "Host_Writes_GiB", "Total_Writes_GiB", "Total_NAND_Writes_GiB", "TLC_NAND_GB_Writes" }
     chunkNames = { "Host_Writes_32MiB" }
   else
-    lbaNames = { "Total_LBAs_Read", "Host_Reads" }
+    lbaNames = { "Total_LBAs_Read" }
     gibNames = { "Lifetime_Reads_GiB", "Host_Reads_GiB", "Total_Reads_GiB" }
     chunkNames = { "Host_Reads_32MiB" }
   end
@@ -342,7 +344,7 @@ local function normalizeSelfTest(smart)
       error_count = integer(standard.error_count_total),
     }
   elseif next(standard) ~= nil then
-    return { supported = true, state = "never", status = "No self-test recorded" }
+    return { supported = true, state = "never", status = noctalia.tr("self_test.none_recorded") }
   end
 
   local nvme = type(smart.nvme_self_test_log) == "table" and smart.nvme_self_test_log or {}
@@ -352,7 +354,7 @@ local function normalizeSelfTest(smart)
       return {
         supported = true,
         state = "running",
-        status = tostring(operation.string or "Self-test in progress"),
+        status = tostring(operation.string or noctalia.tr("self_test.in_progress")),
         completion_percent = numeric(nvme.current_self_test_completion_percent),
       }
     end
@@ -367,9 +369,9 @@ local function normalizeSelfTest(smart)
         lifetime_hours = integer(latest.power_on_hours),
       }
     end
-    return { supported = true, state = "never", status = "No self-test recorded" }
+    return { supported = true, state = "never", status = noctalia.tr("self_test.none_recorded") }
   end
-  return { supported = false, state = "unsupported", status = "Self-test log unavailable" }
+  return { supported = false, state = "unsupported", status = noctalia.tr("self_test.log_unavailable") }
 end
 
 local function normalizeSmart(smart, blockSize)
@@ -380,6 +382,10 @@ local function normalizeSmart(smart, blockSize)
   local attributes = attributeMap(smart)
   local isNvme = next(nvme) ~= nil
   local smartctl = type(smart.smartctl) == "table" and smart.smartctl or {}
+  local powerMode = type(smart.power_mode) == "table" and smart.power_mode or {}
+  local powerModeText = tostring(powerMode.string or ""):lower()
+  local smartSleeping = powerModeText:find("standby", 1, true) ~= nil
+    or powerModeText:find("sleep", 1, true) ~= nil
   local smartExitStatus = integer(smartctl.exit_status) or integer(smart._collector_exit_code)
   local status = type(smart.smart_status) == "table" and smart.smart_status.passed or nil
   if bitSet(smartExitStatus, 3) or bitSet(smartExitStatus, 4) then
@@ -458,7 +464,7 @@ local function normalizeSmart(smart, blockSize)
     warningTemperatureTime = integer(nvme.warning_temp_time)
     criticalTemperatureTime = integer(nvme.critical_comp_time)
   else
-    life = remainingLife(attributes)
+    life, lifeEstimated = remainingLife(attributes)
     if life == nil then
       local vendorHealth = firstAttribute(attributes, { "Perc_Write/Erase_Count" })
       local vendorValue = type(vendorHealth) == "table" and numeric(vendorHealth.value) or nil
@@ -514,6 +520,8 @@ local function normalizeSmart(smart, blockSize)
     warning_temperature_time_minutes = warningTemperatureTime,
     critical_temperature_time_minutes = criticalTemperatureTime,
     smartctl_exit_status = smartExitStatus,
+    smart_sleeping = smartSleeping,
+    smart_power_mode = powerMode.string,
     smart_messages = #smartMessages > 0 and smartMessages or nil,
     smart_completeness = hasCollectionError and "partial" or "full",
     smart_error_log_present = bitSet(smartExitStatus, 6),
@@ -587,6 +595,7 @@ local function summarize(disks)
   local ssdPartial = 0
   local selfTestFailures = 0
   local ssdSelfTestFailures = 0
+  local sleeping = 0
   local hottest = nil
   local hottestDrive = nil
   local hottestSsd = nil
@@ -603,6 +612,9 @@ local function summarize(disks)
     if disk.smart_available then
       smartAvailable += 1
       if isSsd then ssdSmartAvailable += 1 end
+    end
+    if disk.smart_sleeping then
+      sleeping += 1
     end
     if disk.smart_completeness == "partial" then
       partial += 1
@@ -639,7 +651,8 @@ local function summarize(disks)
     ssd_count = ssdCount,
     hdd_count = hddCount,
     smart_available_count = smartAvailable,
-    smart_unavailable_count = #disks - smartAvailable,
+    smart_unavailable_count = #disks - smartAvailable - sleeping,
+    sleeping_count = sleeping,
     unhealthy_count = unhealthy,
     partial_smart_count = partial,
     self_test_failure_count = selfTestFailures,
@@ -693,7 +706,7 @@ end
 local function systemCollectorState(raw, source)
   local pluginDirectory = noctalia.pluginDir()
   local enabled = systemCollectorEnabled()
-  local installed = noctalia.fileExists("/usr/local/libexec/noctalia-smart-monitor/collect_raw.sh")
+  local installed = noctalia.fileExists(SYSTEM_LIBEXEC .. "/collect_raw.sh")
   local reportedVersion = type(raw) == "table" and tostring(raw.collector_version or "") or ""
   local version = source == "system-cache" and reportedVersion or ""
   local status
@@ -714,20 +727,20 @@ local function systemCollectorState(raw, source)
     status = status,
     version = version ~= "" and version or nil,
     expected_version = EXPECTED_COLLECTOR_VERSION,
-    helper_installed = noctalia.fileExists("/usr/local/libexec/noctalia-smart-monitor/smart-action.sh"),
+    helper_installed = noctalia.fileExists(SYSTEM_LIBEXEC .. "/smart-action.sh"),
     helper_available = enabled
-      and noctalia.fileExists("/usr/local/libexec/noctalia-smart-monitor/smart-action.sh"),
+      and noctalia.fileExists(SYSTEM_LIBEXEC .. "/smart-action.sh"),
     authorization_available = noctalia.commandExists("pkexec"),
     install_command = pluginDirectory ~= nil and "sudo "
       .. shellQuote(pluginDirectory .. "/packaging/install-system-collector.sh") or nil,
     uninstall_command = pluginDirectory ~= nil and "sudo "
       .. shellQuote(pluginDirectory .. "/packaging/uninstall-system-collector.sh") or nil,
     enable_command = installed and noctalia.commandExists("systemctl")
-      and "sudo systemctl enable --now noctalia-smart-monitor.timer"
-        .. " && sudo systemctl start noctalia-smart-monitor.service" or nil,
+      and "sudo systemctl enable --now " .. SYSTEM_NAMESPACE .. ".timer"
+        .. " && sudo systemctl start " .. SYSTEM_NAMESPACE .. ".service" or nil,
     disable_command = installed and noctalia.commandExists("systemctl")
-      and "sudo systemctl disable --now noctalia-smart-monitor.timer"
-        .. " && sudo systemctl stop noctalia-smart-monitor.service" or nil,
+      and "sudo systemctl disable --now " .. SYSTEM_NAMESPACE .. ".timer"
+        .. " && sudo systemctl stop " .. SYSTEM_NAMESPACE .. ".service" or nil,
   }
 end
 
@@ -775,7 +788,9 @@ local function normalizeRaw(raw, source)
       local rotational = block.rota == true or tonumber(block.rota) == 1
       local serial = noctalia.string.trim(tostring(block.serial or ""))
       local model = noctalia.string.trim(tostring(block.model or ""))
-      local id = serial ~= "" and serial or tostring(block.kname or device)
+      local namespace = name:match("^nvme%d+(n%d+)$")
+      local id = serial ~= "" and serial .. (namespace ~= nil and ":" .. namespace or "")
+        or tostring(block.kname or device)
       local preferences = preferenceFor(id)
       local removable = block.rm == true or tonumber(block.rm) == 1 or block.hotplug == true or tonumber(block.hotplug) == 1
       local transport = tostring(block.tran or "unknown")
@@ -804,7 +819,7 @@ local function normalizeRaw(raw, source)
         storage_usage_percent = usagePercent,
         mount_points = #mountPoints > 0 and mountPoints or nil,
         smart_available = smartAvailable,
-        smart_error = not smartAvailable and conciseSmartError(smart) or nil,
+        smart_error = not smartAvailable and not values.smart_sleeping and conciseSmartError(smart) or nil,
       }
       for key, value in pairs(values) do
         drive[key] = value
@@ -1072,7 +1087,7 @@ local function collect()
       return
     end
     publish(snapshot, resolvedDependencies)
-  end, 25000)
+  end, 60000)
   if not launched then
     collecting = false
     publishError("Noctalia could not start the SMART collector.", dependencies)

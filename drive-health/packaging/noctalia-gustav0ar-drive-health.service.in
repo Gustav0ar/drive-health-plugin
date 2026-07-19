@@ -1,18 +1,19 @@
 [Unit]
-Description=Collect read-only SMART data for the Noctalia SMART Monitor plugin
+Description=Collect read-only SMART data for Noctalia Drive Health
 Documentation=man:smartctl(8)
 After=local-fs.target
 
 [Service]
 Type=oneshot
-ExecStart=/bin/sh /usr/local/libexec/noctalia-smart-monitor/collect_raw.sh --output /run/noctalia-smart-monitor/raw.json
-RuntimeDirectory=noctalia-smart-monitor
-RuntimeDirectoryMode=0755
+ExecStart=/bin/sh /usr/local/libexec/noctalia-gustav0ar-drive-health/collect_raw.sh --output /run/noctalia-gustav0ar-drive-health/raw.json
+Group=@TARGET_GID@
+RuntimeDirectory=noctalia-gustav0ar-drive-health
+RuntimeDirectoryMode=0750
 RuntimeDirectoryPreserve=yes
-UMask=0022
+UMask=0027
 StandardOutput=null
 StandardError=journal
-TimeoutStartSec=25s
+TimeoutStartSec=60s
 NoNewPrivileges=true
 PrivateTmp=true
 PrivateNetwork=true
@@ -31,4 +32,5 @@ RestrictSUIDSGID=true
 SystemCallArchitectures=native
 LockPersonality=true
 MemoryDenyWriteExecute=true
-ReadWritePaths=/run/noctalia-smart-monitor
+CapabilityBoundingSet=CAP_DAC_OVERRIDE CAP_SYS_ADMIN CAP_SYS_RAWIO
+ReadWritePaths=/run/noctalia-gustav0ar-drive-health

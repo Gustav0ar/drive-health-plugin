@@ -1,4 +1,4 @@
-# Drive Health Plugin for Noctalia Shell
+# Drive Health for Noctalia Shell
 
 Drive Health is a plugin for **Noctalia Shell v5** that monitors SMART health,
 temperature, endurance, integrity counters, mounted storage, and background
@@ -18,11 +18,11 @@ summary widget in Noctalia's bar settings:
 
 ```sh
 noctalia msg plugins source add drive-health git https://github.com/gustav0ar/drive-health-plugin
-noctalia msg plugins enable gustav0ar/drive-health-plugin
+noctalia msg plugins enable gustav0ar/drive-health
 ```
 
-The bar entry is `gustav0ar/drive-health-plugin:summary`. Clicking it opens the
-`gustav0ar/drive-health-plugin:drives` panel.
+The bar entry is `gustav0ar/drive-health:summary`. Clicking it opens the
+`gustav0ar/drive-health:drives` panel.
 
 Update the source and hot-reload the enabled plugin with:
 
@@ -30,7 +30,7 @@ Update the source and hot-reload the enabled plugin with:
 noctalia msg plugins update drive-health
 ```
 
-See the [plugin documentation](drive-health-plugin/README.md) for dependencies,
+See the [plugin documentation](drive-health/README.md) for dependencies,
 the optional collector, settings, alerts, self-tests, privacy, upgrades, and
 uninstallation.
 
@@ -41,12 +41,12 @@ full test suite:
 
 ```sh
 noctalia msg plugins source add drive-health-dev path "$PWD"
-noctalia msg plugins enable gustav0ar/drive-health-plugin
+noctalia msg plugins enable gustav0ar/drive-health
 make test
 ```
 
 The repository follows Noctalia's source layout: `catalog.toml` indexes the
-self-contained plugin in `drive-health-plugin/`. `make test` runs the plugin
+self-contained plugin in `drive-health/`. `make test` runs the plugin
 harnesses, shell and translation checks, Noctalia lint, and distribution-safety
 validation.
 

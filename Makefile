@@ -1,6 +1,6 @@
 SHELL := /bin/sh
 
-PLUGIN_DIR := drive-health-plugin
+PLUGIN_DIR := drive-health
 
 .PHONY: test plugin-test distribution
 

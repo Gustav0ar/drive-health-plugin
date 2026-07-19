@@ -4,7 +4,7 @@ set -eu
 repo_root=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$repo_root"
 
-plugin_dir=drive-health-plugin
+plugin_dir=drive-health
 manifest="$plugin_dir/plugin.toml"
 catalog=catalog.toml
 failed=$(mktemp "${TMPDIR:-/tmp}/drive-health-distribution.XXXXXX")
@@ -23,6 +23,7 @@ report() {
 for required in \
   catalog.toml README.md LICENSE \
   "$plugin_dir/plugin.toml" "$plugin_dir/README.md" \
+  "$plugin_dir/thumbnail.webp" \
   "$plugin_dir/collector.luau" "$plugin_dir/service.luau" \
   "$plugin_dir/history.luau" "$plugin_dir/widget.luau" "$plugin_dir/panel.luau" \
   "$plugin_dir/translations/en.json" "$plugin_dir/scripts/collect_raw.sh"; do
@@ -55,7 +56,7 @@ else
 
   plugin_id=$(field_value id "$manifest" | sed 's/^"//; s/"$//')
   plugin_suffix=${plugin_id#*/}
-  if [ "$plugin_id" != "gustav0ar/drive-health-plugin" ] || [ "$plugin_suffix" != "$plugin_dir" ]; then
+  if [ "$plugin_id" != "gustav0ar/drive-health" ] || [ "$plugin_suffix" != "$plugin_dir" ]; then
     report plugin-identity "$manifest"
   fi
 

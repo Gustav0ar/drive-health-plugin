@@ -214,7 +214,7 @@ local function alertsCard(issues)
       ui.glyph({ name = issue.severity == "critical" and "alert-octagon" or "alert-circle", size = 13, color = color }),
       ui.label({ text = tostring(issue.message or issue.title), fontSize = 11, color = "on_surface", flexGrow = 1 }),
       ui.button({ glyph = "x", tooltip = noctalia.tr("alerts.dismiss"), variant = "ghost", controlSize = "sm",
-        enabled = index <= 16, onClick = "onDismissAlert" .. tostring(index) .. "Clicked" }),
+        enabled = index <= 32, onClick = "onDismissAlert" .. tostring(index) .. "Clicked" }),
     }))
   end
 
@@ -809,23 +809,6 @@ local function driveCard(drive, index)
       color = "on_surface_variant",
     }),
   }
-  if drive.serial ~= nil and drive.serial ~= "" then
-    table.insert(identity, ui.label({
-      text = noctalia.tr("metrics.serial", { value = tostring(drive.serial) }),
-      fontSize = 10,
-      color = "on_surface_variant/0.78",
-      maxLines = 1,
-    }))
-  end
-  if type(drive.mount_points) == "table" and #drive.mount_points > 0 then
-    table.insert(identity, ui.label({
-      text = noctalia.tr("metrics.mounted_at", { paths = table.concat(drive.mount_points, "  ·  ") }),
-      fontSize = 10,
-      color = "primary/0.88",
-      maxLines = 2,
-    }))
-  end
-
   local compactMetrics = {
     metric("temperature", isHdd and noctalia.tr("metrics.temperature") or noctalia.tr("metrics.hotspot_temperature"),
       tempText, tempColor),
@@ -847,13 +830,25 @@ local function driveCard(drive, index)
       ui.button({
         glyph = expanded and "chevron-up" or "chevron-down", variant = "ghost", controlSize = "sm",
         tooltip = noctalia.tr(expanded and "panel.collapse" or "panel.expand"),
-        enabled = index <= 16, onClick = "onDrive" .. tostring(index) .. "Clicked",
+        enabled = index <= 32, onClick = "onDrive" .. tostring(index) .. "Clicked",
       }),
     }),
     ui.row({ gap = 14, align = "center" }, compactMetrics),
   }
 
   if expanded then
+    if drive.serial ~= nil and drive.serial ~= "" then
+      table.insert(children, ui.label({
+        text = noctalia.tr("metrics.serial", { value = tostring(drive.serial) }),
+        fontSize = 10, color = "on_surface_variant/0.78", maxLines = 1,
+      }))
+    end
+    if type(drive.mount_points) == "table" and #drive.mount_points > 0 then
+      table.insert(children, ui.label({
+        text = noctalia.tr("metrics.mounted_at", { paths = table.concat(drive.mount_points, "  ·  ") }),
+        fontSize = 10, color = "primary/0.88", maxLines = 2,
+      }))
+    end
     table.insert(children, ui.row({ gap = 16, align = "center" }, details))
     table.insert(children, ui.row({ gap = 16, align = "center" }, progressRows))
     appendMetricRows(children, wearDetails)
@@ -873,7 +868,12 @@ local function driveCard(drive, index)
     }))
   end
 
-  if not drive.smart_available then
+  if drive.smart_sleeping then
+    table.insert(children, ui.row({ gap = 7, align = "center", fill = "primary/0.08", radius = 8, padding = 8 }, {
+      ui.glyph({ name = "moon", size = 13, color = "primary" }),
+      ui.label({ text = noctalia.tr("smart.sleeping"), fontSize = 11, color = "on_surface_variant", flexGrow = 1 }),
+    }))
+  elseif not drive.smart_available then
     table.insert(children, ui.row({ gap = 7, align = "center", fill = "secondary/0.12", radius = 8, padding = 8 }, {
       ui.glyph({ name = "info-circle", size = 13, color = "secondary" }),
       ui.label({ text = noctalia.tr("smart.access_limited"), fontSize = 11, color = "on_surface_variant", flexGrow = 1 }),
@@ -1009,12 +1009,14 @@ local function render()
       table.insert(body, alerts)
     end
 
-    if smartAvailable < driveCount then
+    local sleeping = number(summary.sleeping_count, 0)
+    if smartAvailable + sleeping < driveCount then
       table.insert(body, ui.row({ gap = 8, padding = 10, radius = 10, fill = "secondary/0.12", align = "center" }, {
         ui.glyph({ name = "shield-lock", size = 16, color = "secondary" }),
         ui.column({ gap = 2, flexGrow = 1 }, {
           ui.label({ text = noctalia.tr("smart.partial_title"), fontWeight = "bold", color = "secondary" }),
-          ui.label({ text = noctalia.tr("smart.partial_body", { available = smartAvailable, total = driveCount }), fontSize = 11, color = "on_surface_variant" }),
+          ui.label({ text = noctalia.tr("smart.partial_body", { available = smartAvailable,
+            total = driveCount - sleeping }), fontSize = 11, color = "on_surface_variant" }),
         }),
       }))
     end
@@ -1139,6 +1141,22 @@ function onDrive13Clicked() toggleDriveAt(13) end
 function onDrive14Clicked() toggleDriveAt(14) end
 function onDrive15Clicked() toggleDriveAt(15) end
 function onDrive16Clicked() toggleDriveAt(16) end
+function onDrive17Clicked() toggleDriveAt(17) end
+function onDrive18Clicked() toggleDriveAt(18) end
+function onDrive19Clicked() toggleDriveAt(19) end
+function onDrive20Clicked() toggleDriveAt(20) end
+function onDrive21Clicked() toggleDriveAt(21) end
+function onDrive22Clicked() toggleDriveAt(22) end
+function onDrive23Clicked() toggleDriveAt(23) end
+function onDrive24Clicked() toggleDriveAt(24) end
+function onDrive25Clicked() toggleDriveAt(25) end
+function onDrive26Clicked() toggleDriveAt(26) end
+function onDrive27Clicked() toggleDriveAt(27) end
+function onDrive28Clicked() toggleDriveAt(28) end
+function onDrive29Clicked() toggleDriveAt(29) end
+function onDrive30Clicked() toggleDriveAt(30) end
+function onDrive31Clicked() toggleDriveAt(31) end
+function onDrive32Clicked() toggleDriveAt(32) end
 
 local function sendDismissRequest(request)
   dismissRequestNonce += 1
@@ -1169,6 +1187,22 @@ function onDismissAlert13Clicked() dismissAlertAt(13) end
 function onDismissAlert14Clicked() dismissAlertAt(14) end
 function onDismissAlert15Clicked() dismissAlertAt(15) end
 function onDismissAlert16Clicked() dismissAlertAt(16) end
+function onDismissAlert17Clicked() dismissAlertAt(17) end
+function onDismissAlert18Clicked() dismissAlertAt(18) end
+function onDismissAlert19Clicked() dismissAlertAt(19) end
+function onDismissAlert20Clicked() dismissAlertAt(20) end
+function onDismissAlert21Clicked() dismissAlertAt(21) end
+function onDismissAlert22Clicked() dismissAlertAt(22) end
+function onDismissAlert23Clicked() dismissAlertAt(23) end
+function onDismissAlert24Clicked() dismissAlertAt(24) end
+function onDismissAlert25Clicked() dismissAlertAt(25) end
+function onDismissAlert26Clicked() dismissAlertAt(26) end
+function onDismissAlert27Clicked() dismissAlertAt(27) end
+function onDismissAlert28Clicked() dismissAlertAt(28) end
+function onDismissAlert29Clicked() dismissAlertAt(29) end
+function onDismissAlert30Clicked() dismissAlertAt(30) end
+function onDismissAlert31Clicked() dismissAlertAt(31) end
+function onDismissAlert32Clicked() dismissAlertAt(32) end
 
 function onDismissAllAlertsClicked()
   if #currentIssues > 0 then
@@ -1384,7 +1418,7 @@ function onConfirmSelfTestClicked()
     baseline_signature = selfTestSignature(drive),
   }
   render()
-  local command = "pkexec /usr/local/libexec/noctalia-smart-monitor/smart-action.sh "
+  local command = "pkexec /usr/local/libexec/noctalia-gustav0ar-drive-health/smart-action.sh "
     .. shellQuote(request.kind) .. " " .. shellQuote(request.device)
   local launched = noctalia.runAsync(command, function(result)
     if selfTestLaunch == nil or selfTestLaunch.drive_id ~= request.drive_id then return end

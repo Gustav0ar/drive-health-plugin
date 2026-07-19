@@ -102,5 +102,5 @@ function update()
 end
 
 function onClick()
-  noctalia.togglePanel("gustav0ar/drive-health-plugin:drives")
+  noctalia.togglePanel("gustav0ar/drive-health:drives")
 end

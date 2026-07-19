@@ -26,7 +26,7 @@ local available = {
 
 local rawFixture = {
   schema = 2,
-  collector_version = mode == "outdated-raw-cache" and "0.6.0" or "1.0.0",
+  collector_version = mode == "outdated-raw-cache" and "0.6.0" or "2.0.0",
   collection_id = "fixture-collection-id",
   generated_at_epoch = 1700000000,
   lsblk = { blockdevices = {} },
@@ -194,8 +194,8 @@ elseif mode == "raw-cache" then
   assert(snapshot.source == "system-cache", "raw cache was not normalized")
   assert(snapshot.collection_id == "fixture-collection-id", "raw cache lost its collection ID")
   assert(snapshot.system_collector.status == "healthy"
-    and snapshot.system_collector.version == "1.0.0"
-    and snapshot.system_collector.expected_version == "1.0.0",
+    and snapshot.system_collector.version == "2.0.0"
+    and snapshot.system_collector.expected_version == "2.0.0",
     "current system collector was not reported healthy")
   assert(not (launchedCommand or ""):match("collect_raw%.sh"), "collector launched despite a fresh raw cache")
   print("collector initialization test passed: " .. mode)
@@ -204,7 +204,7 @@ elseif mode == "outdated-raw-cache" then
   assert(snapshot.source == "system-cache", "outdated raw cache was not normalized")
   assert(snapshot.system_collector.status == "upgrade-required"
     and snapshot.system_collector.version == "0.6.0"
-    and snapshot.system_collector.expected_version == "1.0.0",
+    and snapshot.system_collector.expected_version == "2.0.0",
     "older system collector did not request an upgrade")
   assert(not (launchedCommand or ""):match("collect_raw%.sh"), "collector launched despite a fresh raw cache")
   assert(#notifications == 1 and notifications[1].title == "collector.update_title"
@@ -301,6 +301,7 @@ local samsung = normalizeSmart({
   } },
 })
 assert(samsung.remaining_life_percent == 90, "Samsung wear normalization failed")
+assert(samsung.remaining_life_estimated == true, "vendor ATA life was not marked estimated")
 assert(samsung.temperature_c == 39, "Samsung temperature normalization failed")
 assert(samsung.data_written_bytes == 210090409618 * 512, "Samsung LBA conversion failed")
 assert(samsung.reallocated_sectors == 0, "Samsung integrity counter normalization failed")
@@ -364,6 +365,16 @@ assert(sandisk.data_written_bytes == 43210 * 1024 ^ 3, "SanDisk write conversion
 assert(sandisk.data_read_bytes == 8765 * 1024 ^ 3, "SanDisk read conversion failed")
 assert(sandisk.unsafe_shutdowns == 12, "SanDisk unsafe shutdown normalization failed")
 
+local ambiguousHostWrites = normalizeSmart({
+  smart_status = { passed = true },
+  ata_smart_attributes = { table = {
+    { name = "Host_Writes", value = 99, raw = { value = 123456 } },
+    { name = "Host_Reads", value = 99, raw = { value = 654321 } },
+  } },
+})
+assert(ambiguousHostWrites.data_written_bytes == nil and ambiguousHostWrites.data_read_bytes == nil,
+  "unitless ATA host counters were incorrectly treated as LBAs")
+
 local estimated = normalizeSmart({
   smart_status = { passed = true },
   ata_smart_attributes = { table = {
@@ -416,7 +427,7 @@ local normalized, normalizeError = normalizeRaw({
 }, "test")
 assert(normalized ~= nil and normalizeError == nil, "raw normalization failed")
 assert(normalized.collection_id == "fixture-normalized-id", "raw normalization lost its collection ID")
-assert(normalized.summary.ssd_count == 1 and normalized.disks[1].id == "FIXTURE1", "drive discovery failed")
+assert(normalized.summary.ssd_count == 1 and normalized.disks[1].id == "FIXTURE1:n1", "drive discovery failed")
 assert(normalized.disks[1].temperature_c == 47, "sysfs temperature fallback failed")
 assert(normalized.disks[1].mount_points[1] == "/mnt/work",
   "normalized drive omitted its mounted folder")
@@ -472,6 +483,36 @@ local healthyRaw = assert(normalizeRaw({
 assert(healthyRaw.disks[1].smart_available == true and healthyRaw.disks[1].smart_error == nil,
   "healthy SMART data retained a contradictory error message")
 
+local sleeping = assert(normalizeRaw({
+  schema = 2, generated_at_epoch = 1700000000,
+  lsblk = { blockdevices = { {
+    name = "sdb", kname = "sdb", path = "/dev/sdb", type = "disk", tran = "sata",
+    rota = true, size = 1000000000, model = "Sleeping HDD", serial = "SLEEP1",
+    mountpoints = {}, children = {},
+  } } },
+  smart = { { requested_device = "/dev/sdb", payload = {
+    power_mode = { value = 128, string = "STANDBY" },
+    smartctl = { exit_status = 2 },
+  } } },
+}, "test"))
+assert(sleeping.disks[1].smart_sleeping == true and sleeping.disks[1].smart_error == nil,
+  "sleeping HDD was reported as a SMART access failure")
+assert(sleeping.summary.sleeping_count == 1 and sleeping.summary.smart_unavailable_count == 0,
+  "sleeping HDD was counted as unavailable")
+
+local namespaces = assert(normalizeRaw({
+  schema = 2, generated_at_epoch = 1700000000,
+  lsblk = { blockdevices = {
+    { name = "nvme0n1", kname = "nvme0n1", path = "/dev/nvme0n1", type = "disk",
+      tran = "nvme", rota = false, serial = "SHARED", children = {} },
+    { name = "nvme0n2", kname = "nvme0n2", path = "/dev/nvme0n2", type = "disk",
+      tran = "nvme", rota = false, serial = "SHARED", children = {} },
+  } }, smart = {},
+}, "test"))
+assert(namespaces.disks[1].id ~= namespaces.disks[2].id
+    and namespaces.disks[1].id:match(":n%d+$") and namespaces.disks[2].id:match(":n%d+$"),
+  "NVMe namespaces sharing a controller serial did not receive unique IDs")
+
 local empty = assert(normalizeRaw({
   schema = 2, collection_id = "   ", generated_at_epoch = 1700000000,
   lsblk = { blockdevices = {} }, smart = {},
@@ -485,7 +526,7 @@ local oversizedId = assert(normalizeRaw({
 }, "test"))
 assert(oversizedId.collection_id == nil, "oversized collection ID was preserved")
 
-files["/usr/local/libexec/noctalia-smart-monitor/collect_raw.sh"] = "installed"
+files["/usr/local/libexec/noctalia-gustav0ar-drive-health/collect_raw.sh"] = "installed"
 collectorEnabled = true
 state.collector_snapshot = { summary = {}, system_collector = { status = "healthy" } }
 publishError("fixture failure", { ready = true, blocking = false })
