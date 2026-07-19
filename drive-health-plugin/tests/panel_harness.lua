@@ -108,7 +108,9 @@ state.snapshot = {
 }
 state.drive_history = { schema = 1, drives = { SERIAL1 = { samples = {
   { epoch = 1, hotspot_temperature_c = 65, remaining_life_percent = 96 },
-  { epoch = 2, hotspot_temperature_c = 70, remaining_life_percent = 95 },
+  { epoch = 2, hotspot_temperature_c = 67, remaining_life_percent = 96 },
+  { epoch = 3, hotspot_temperature_c = 69, remaining_life_percent = 95 },
+  { epoch = 4, hotspot_temperature_c = 70, remaining_life_percent = 95 },
 } } } }
 state.drive_preferences = { schema = 1, order = {}, drives = {} }
 
@@ -317,11 +319,22 @@ onCancelDrivePreferencesClicked()
 
 state.drive_history.drives.SERIAL1.samples = {
   { epoch = 1, hotspot_temperature_c = 65 },
-  { epoch = 2, hotspot_temperature_c = 70 },
+  { epoch = 2, hotspot_temperature_c = 67 },
+  { epoch = 3, hotspot_temperature_c = 69 },
+}
+watchers.drive_history(state.drive_history)
+assert(findNode(rendered, "graph") == nil and containsText(rendered, "history.collecting"),
+  "three trend samples left a blank graph instead of the compact collecting state")
+state.drive_history.drives.SERIAL1.samples = {
+  { epoch = 1, hotspot_temperature_c = 65 },
+  { epoch = 2, hotspot_temperature_c = 67 },
+  { epoch = 3, hotspot_temperature_c = 69 },
+  { epoch = 4, hotspot_temperature_c = 70 },
 }
 watchers.drive_history(state.drive_history)
 local graph = assert(findNode(rendered, "graph"), "temperature-only history graph did not render")
 assert(graph.props.values2 == nil, "missing endurance history was rendered as a zero-percent series")
+assert(graph.props.height == 44, "rendered trend graph did not use the compact height")
 assert(not containsText(rendered, "● history.life"), "missing endurance history kept a misleading legend")
 
 state.snapshot.issues = {

@@ -24,6 +24,7 @@ local EDITABLE_PREFERENCE_FIELDS = {
   "alias", "warning_temperature", "critical_temperature", "life_warning_percent",
   "alerts_enabled", "presence_alert_enabled",
 }
+local MIN_TREND_SAMPLES = 4
 
 local function number(value, fallback)
   local parsed = tonumber(value)
@@ -438,15 +439,22 @@ local function collectorSettingsCard(collector)
   }, children)
 end
 
+local function trendPlaceholder(message)
+  return ui.row({ gap = 7, padding = 8, radius = 8, fill = "surface/0.38", align = "center" }, {
+    ui.glyph({ name = "chart-line", size = 13, color = "on_surface_variant" }),
+    ui.label({ text = message, fontSize = 11, color = "on_surface_variant" }),
+  })
+end
+
 local function trendCard(drive)
   local historyDrives = type(history.drives) == "table" and history.drives or {}
   local entry = historyDrives[driveId(drive)]
   local samples = type(entry) == "table" and entry.samples or {}
-  if #samples < 2 then
-    return ui.row({ gap = 7, padding = 8, radius = 8, fill = "surface/0.38", align = "center" }, {
-      ui.glyph({ name = "chart-line", size = 13, color = "on_surface_variant" }),
-      ui.label({ text = noctalia.tr("history.collecting"), fontSize = 11, color = "on_surface_variant" }),
-    })
+  if #samples < MIN_TREND_SAMPLES then
+    return trendPlaceholder(noctalia.tr("history.collecting", {
+      count = #samples,
+      minimum = MIN_TREND_SAMPLES,
+    }))
   end
   local temperatures = {}
   local life = {}
@@ -468,29 +476,26 @@ local function trendCard(drive)
   end
   if not hasTemperatures then temperatures = {} end
   if not hasLife then life = {} end
-  if #temperatures < 2 and #life < 2 then
-    return ui.row({ gap = 7, padding = 8, radius = 8, fill = "surface/0.38", align = "center" }, {
-      ui.glyph({ name = "chart-line", size = 13, color = "on_surface_variant" }),
-      ui.label({ text = noctalia.tr("history.collecting"), fontSize = 11, color = "on_surface_variant" }),
-    })
+  if #temperatures < MIN_TREND_SAMPLES and #life < MIN_TREND_SAMPLES then
+    return trendPlaceholder(noctalia.tr("history.incomplete"))
   end
-  local primaryValues = #temperatures >= 2 and temperatures or life
-  local secondaryValues = #temperatures >= 2 and #life >= 2 and life or nil
-  local primaryColor = #temperatures >= 2 and "secondary" or "primary"
+  local primaryValues = #temperatures >= MIN_TREND_SAMPLES and temperatures or life
+  local secondaryValues = #temperatures >= MIN_TREND_SAMPLES and #life >= MIN_TREND_SAMPLES and life or nil
+  local primaryColor = #temperatures >= MIN_TREND_SAMPLES and "secondary" or "primary"
   local legend = {}
-  if #temperatures >= 2 then
+  if #temperatures >= MIN_TREND_SAMPLES then
     table.insert(legend, ui.label({ text = "● " .. noctalia.tr("history.hotspot"), fontSize = 10, color = "secondary" }))
   end
-  if #life >= 2 then
+  if #life >= MIN_TREND_SAMPLES then
     table.insert(legend, ui.label({ text = "● " .. noctalia.tr("history.life"), fontSize = 10, color = "primary" }))
   end
-  return ui.column({ gap = 6, padding = 9, radius = 9, fill = "surface/0.38" }, {
+  return ui.column({ gap = 5, padding = 8, radius = 9, fill = "surface/0.38" }, {
     ui.row({ justify = "space_between", align = "center" }, {
       ui.label({ text = noctalia.tr("history.title"), fontSize = 11, fontWeight = "bold" }),
       ui.label({ text = noctalia.tr("history.samples", { count = #samples }), fontSize = 10, color = "on_surface_variant" }),
     }),
     ui.graph({ values = primaryValues, values2 = secondaryValues, color = primaryColor, color2 = "primary",
-      lineWidth = 2, fillOpacity = 0.10, height = 56 }),
+      lineWidth = 2, fillOpacity = 0.10, height = 44 }),
     ui.row({ gap = 12, align = "center" }, legend),
   })
 end
