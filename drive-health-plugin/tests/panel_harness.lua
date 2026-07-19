@@ -323,8 +323,8 @@ state.drive_history.drives.SERIAL1.samples = {
   { epoch = 3, hotspot_temperature_c = 69 },
 }
 watchers.drive_history(state.drive_history)
-assert(findNode(rendered, "graph") == nil and containsText(rendered, "history.collecting"),
-  "three trend samples left a blank graph instead of the compact collecting state")
+assert(findNode(rendered, "graph") == nil and not containsText(rendered, "history.title"),
+  "trend section rendered before a graph-compatible series had four samples")
 state.drive_history.drives.SERIAL1.samples = {
   { epoch = 1, hotspot_temperature_c = 65 },
   { epoch = 2, hotspot_temperature_c = 67 },

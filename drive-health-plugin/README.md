@@ -234,8 +234,8 @@ History is stored as bounded JSON in Noctalia's plugin data directory. The
 default sampling interval is one hour and retention is 30 days; both are
 configurable. Files are written atomically and samples are added only when the
 configured interval has elapsed. Noctalia's graph renderer needs four compatible
-samples, so the panel shows a compact collection status until that threshold is
-reached instead of reserving an empty chart area.
+samples, so the panel does not show the trend section until that threshold is
+reached.
 
 Expand a drive and choose **Customize** to set an alias, reorder or hide it,
 change its thresholds, or disable health/disappearance alerts for that drive.
@@ -260,7 +260,7 @@ Update the Git source and hot-reload the enabled plugin with:
 noctalia msg plugins update drive-health
 ```
 
-Plugin 1.1.1 expects the 1.0.0 optional system collector. When Full SMART is
+Plugin 1.1.2 expects the 1.0.0 optional system collector. When Full SMART is
 enabled, every refresh verifies this version. After a plugin update changes the
 required collector version, Drive Health shows a one-time update notification
 and a persistent **Upgrade collector** action until the root-owned copy matches.

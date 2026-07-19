@@ -123,8 +123,6 @@
   },
     "history": {
     "title": "Drive health trends",
-    "collecting": "Collecting trend samples ({count}/{minimum}); the graph appears at {minimum}.",
-    "incomplete": "Trend samples are incomplete; collecting a usable series.",
     "samples": "{count} samples",
     "hotspot": "Hotspot temperature",
     "life": "Life remaining"

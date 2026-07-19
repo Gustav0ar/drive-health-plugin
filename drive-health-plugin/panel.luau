@@ -439,22 +439,12 @@ local function collectorSettingsCard(collector)
   }, children)
 end
 
-local function trendPlaceholder(message)
-  return ui.row({ gap = 7, padding = 8, radius = 8, fill = "surface/0.38", align = "center" }, {
-    ui.glyph({ name = "chart-line", size = 13, color = "on_surface_variant" }),
-    ui.label({ text = message, fontSize = 11, color = "on_surface_variant" }),
-  })
-end
-
 local function trendCard(drive)
   local historyDrives = type(history.drives) == "table" and history.drives or {}
   local entry = historyDrives[driveId(drive)]
   local samples = type(entry) == "table" and entry.samples or {}
   if #samples < MIN_TREND_SAMPLES then
-    return trendPlaceholder(noctalia.tr("history.collecting", {
-      count = #samples,
-      minimum = MIN_TREND_SAMPLES,
-    }))
+    return nil
   end
   local temperatures = {}
   local life = {}
@@ -477,7 +467,7 @@ local function trendCard(drive)
   if not hasTemperatures then temperatures = {} end
   if not hasLife then life = {} end
   if #temperatures < MIN_TREND_SAMPLES and #life < MIN_TREND_SAMPLES then
-    return trendPlaceholder(noctalia.tr("history.incomplete"))
+    return nil
   end
   local primaryValues = #temperatures >= MIN_TREND_SAMPLES and temperatures or life
   local secondaryValues = #temperatures >= MIN_TREND_SAMPLES and #life >= MIN_TREND_SAMPLES and life or nil
@@ -883,7 +873,10 @@ local function driveCard(drive, index)
     appendMetricRows(children, thermalDetails)
     appendMetricRows(children, errorDetails)
     appendMetricRows(children, integrityDetails)
-    table.insert(children, trendCard(drive))
+    local trends = trendCard(drive)
+    if trends ~= nil then
+      table.insert(children, trends)
+    end
     table.insert(children, selfTestCard(drive))
     table.insert(children, ui.row({ gap = 7, justify = "end" }, {
       ui.button({ text = noctalia.tr("preferences.edit"), glyph = "settings", variant = "ghost",

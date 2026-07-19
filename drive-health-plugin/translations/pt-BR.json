@@ -123,8 +123,6 @@
   },
   "history": {
     "title": "Tendências de saúde das unidades",
-    "collecting": "Coletando amostras de tendência ({count}/{minimum}); o gráfico aparece com {minimum}.",
-    "incomplete": "As amostras de tendência estão incompletas; coletando uma série utilizável.",
     "samples": "{count} amostras",
     "hotspot": "Ponto mais quente",
     "life": "Vida restante"
